@@ -12476,6 +12476,26 @@ export type PatchNodeTable = {
       right: "a";
     };
   };
+  /** the vocoder's built-in carrier (saw, supersaw, pulse or noise) following the notes */
+  "engine.vocoder": {
+    main: "a";
+    params: {
+      /** which instrument of this engine plays (default "vocoder") */
+      instrument?: "vocoder";
+      /** engine settings, as the track field holds them */
+      settings?: Readonly<Record<string, unknown>>;
+    };
+    inputs: {
+      /** the notes to play (wire in.notes) */
+      notes: "n";
+    };
+    outputs: {
+      /** audio out (left when stereo) */
+      out: "a";
+      /** right out (equals out for a mono engine) */
+      right: "a";
+    };
+  };
   /** resonant biquad: low-pass, high-pass or band-pass */
   "fx.filter": {
     main: "a";
@@ -13969,6 +13989,16 @@ export const PATCH_NODE_PORTS: Readonly<
       ["right", "a"],
     ],
     engine: ["keys"],
+  },
+  "engine.vocoder": {
+    rate: "global",
+    params: ["instrument"],
+    inputs: [["notes", "n"]],
+    outputs: [
+      ["out", "a"],
+      ["right", "a"],
+    ],
+    engine: ["vocoder"],
   },
   "fx.filter": {
     rate: "global",
