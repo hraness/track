@@ -13,6 +13,7 @@
  */
 
 import { paintTape, type TapeView } from "./tape.ts";
+import { paintPatch, type PatchPaint } from "./patch.ts";
 import {
   ActivityFeed,
   ERROR_FADE_MS,
@@ -107,6 +108,8 @@ export interface AppView {
   play?: PlayHeaderView | undefined;
   /** TAPE (op1-ux §6): replaces the highway and the arrange strip. */
   tape?: TapeView | undefined;
+  /** The patch view (patcher §7): replaces the highway and the arrange strip. */
+  patch?: PatchPaint | undefined;
   /** Song master meter: integrated LUFS and true peak of the playing loop. */
   loudness?: LoudnessView | undefined;
   /** Song sections over the timeline (0.5); no row when absent. */
@@ -1509,7 +1512,7 @@ export function composeFrame(
       hits,
       view.beat ?? resolveBeat(view.score, nowMs),
     );
-  if (view.arrange && !view.tape && layout.highway.height > 4) {
+  if (view.arrange && !view.tape && !view.patch && layout.highway.height > 4) {
     paintArrangeStrip(
       buffer,
       layout.highway.y,
@@ -1550,7 +1553,18 @@ export function composeFrame(
           ? { x: sideX, width: width - sideX }
           : undefined
         : { x: 0, width };
-    if (side && view.tape)
+    if (side && view.patch)
+      paintPatch(
+        buffer,
+        { ...side, y: layout.highway.y, height: layout.highway.height },
+        view.patch,
+        {
+          theme: ui.theme,
+          unicode: ui.capabilities.unicode,
+          ...(panel !== undefined ? {} : { hits }),
+        },
+      );
+    else if (side && view.tape)
       paintTape(
         buffer,
         { ...side, y: layout.highway.y, height: layout.highway.height },

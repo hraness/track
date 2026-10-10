@@ -82,6 +82,7 @@ describe("help reference", () => {
         "/menu",
         "/model",
         "/motion",
+        "/patch",
         "/play",
         "/rename",
         "/resume",

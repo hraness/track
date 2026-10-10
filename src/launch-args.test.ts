@@ -262,6 +262,16 @@ describe("dawg pane", () => {
       pin: true,
     });
     expect(pane(["menu", "mix"])).toMatchObject({ param: "mix" });
+    // The patch view: a track, then an effect patch by name.
+    expect(pane(["patch", "bass"])).toMatchObject({
+      screen: "patch",
+      track: "bass",
+      param: undefined,
+    });
+    expect(pane(["patch", "bass", "wide-crush"])).toMatchObject({
+      track: "bass",
+      param: "wide-crush",
+    });
     expect(pane(["sound", "follow"])).toMatchObject({ follow: "*" });
     expect(pane(["sound", "follow", "b"])).toMatchObject({ follow: "B" });
   });

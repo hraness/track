@@ -33,8 +33,11 @@ export function resolveKnobPath(
   let nodes: readonly MenuNode[] = rootNodes(context);
   let found: MenuNode | undefined;
   for (const segment of path.split("/")) {
-    found = nodes.find((node) => matches(node, segment));
-    if (!found) {
+    const nth = /^#(\d+)$/.exec(segment);
+    found = nth
+      ? nodes[Number(nth[1]) - 1]
+      : nodes.find((node) => matches(node, segment));
+    if (!found && !nth) {
       // Effects beyond the first few live under "more effects".
       const more = nodes.find(
         (node) => node.kind === "menu" && node.id === "more effects",

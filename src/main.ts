@@ -357,6 +357,19 @@ import {
   type TapeContext,
 } from "./tui/tape-mode.ts";
 import { tapeView } from "./tui/tape-view.ts";
+import {
+  clampState,
+  focusCable,
+  newCables,
+  patchKey,
+  patchModel,
+  patchPaint,
+  patchViewState,
+  type PatchViewState,
+} from "./tui/patch-view.ts";
+import { nodeMenuId } from "./tui/patch-menu.ts";
+import type { PatchPaint } from "../tui/patch.ts";
+import type { Cable } from "../core/patch.ts";
 import { PromptQueue } from "./tui/prompt-queue.ts";
 import { TAPE_ZOOMS, type TapeView, type TapeZoom } from "../tui/tape.ts";
 import type { HitTarget } from "../tui/hits.ts";
@@ -868,7 +881,7 @@ let monitorEngine: AudioEngine | undefined;
 /** The audition loop and staged edits (src/tui/audition.ts), made lazily. */
 let auditionLoop: Audition | undefined;
 /** Pickers that host the audition loop (Space, `a`, `c`, hover). */
-const AUDITION_PICKERS = new Set(["kit", "pattern", "try"]);
+const AUDITION_PICKERS = new Set(["kit", "pattern", "try", "patch-add"]);
 const TRY_USAGE =
   "/try <sound command> · /try fx reverb mix 0.6 · /try agent on|off";
 /** Whether the agent's preview_sound plays its snippet in this window. */
@@ -885,6 +898,20 @@ const CHORDS_COMMAND = /^\/chords\s+(.+)$/i;
 let chordScreenWas = false;
 /** The range clipboard (`copy bass 5-6`, then `paste at 9`); per window. */
 let rangeClipboard: RangeClipboard | undefined;
+/**
+ * The patch view (patcher design §7): on, and its pane state (which
+ * patch, the focused pane, the node, port and matrix cell, the knob).
+ * Each key runs a typed `patch …` command.
+ */
+const patchView: {
+  on: boolean;
+  state: PatchViewState;
+  /** The cables last painted, so a new one (typed, agent, other pane) is shown. */
+  cables?: Readonly<{ key: string; list: readonly Cable[] }> | undefined;
+} = {
+  on: false,
+  state: patchViewState(),
+};
 /**
  * TAPE (op1-ux §6): on, its zoom, its knob strip, the last view painted
  * (mouse hits map cells to bars through it), a ruler drag in progress, and
@@ -1208,7 +1235,11 @@ function appView(value: TrackScore, beat: number): AppView {
     pane: port.pane,
     types: typesIndicator,
     play: play?.on ? play.header() : undefined,
-    tape: tape.on && !play?.on ? currentTapeView(value, beat) : undefined,
+    tape:
+      tape.on && !play?.on && !patchView.on
+        ? currentTapeView(value, beat)
+        : undefined,
+    patch: patchView.on && !play?.on ? currentPatchPaint(value) : undefined,
     loudness: masterLoudness(value),
   };
 }
@@ -2112,6 +2143,10 @@ async function runInteractive(): Promise<void> {
           tick(true);
           continue;
         }
+        if (typeof value === "string" && patchView.on && patchInput(value)) {
+          tick(true);
+          continue;
+        }
         // Ctrl-T opens TAPE (op1-ux §6); again (or esc) goes home.
         if (value === "\u0014" && tui.ui.overlay === undefined) {
           if (tape.on) receipt(exitTape());
@@ -2395,6 +2430,14 @@ async function submit(prompt: string): Promise<string | Receipt> {
     return note(
       `${lines.length} note${lines.length === 1 ? "" : "s"} · ${requestedTrack} · remove <id>`,
     );
+  }
+  const patchViewMatch = command.match(
+    /^\/patch(?:\s+(on|off)|\s+--fx\s+([a-z][a-z0-9-]{0,31}))?$/i,
+  );
+  if (patchViewMatch) {
+    const wanted = patchViewMatch[1]?.toLowerCase();
+    if (wanted === "off") return exitPatch();
+    return enterPatch(patchViewMatch[2]?.toLowerCase());
   }
   const tapeCommand = command.match(/^\/tape(?:\s+(on|off))?$/i);
   if (tapeCommand) {
@@ -4435,13 +4478,15 @@ function paneView(): PaneView {
   const view: PaneView = {
     screen: session?.on
       ? "play"
-      : tape.on
-        ? "tape"
-        : fader
-          ? "sound"
-          : menu.open
-            ? "menu"
-            : "home",
+      : patchView.on
+        ? "patch"
+        : tape.on
+          ? "tape"
+          : fader
+            ? "sound"
+            : menu.open
+              ? "menu"
+              : "home",
   };
   if (fader) view.param = fader.label.slice(0, 64);
   if (session?.on) view.playing = true;
@@ -4470,6 +4515,7 @@ async function openPane(pane: PaneArgs): Promise<void> {
   let result: string | Receipt | undefined;
   if (pane.screen === "play") result = await enterPlay();
   else if (pane.screen === "tape") result = await enterTape();
+  else if (pane.screen === "patch") result = await enterPatch(pane.param);
   else if (pane.screen === "sound")
     result = await submit(pane.param ?? "volume");
   else if (pane.screen === "menu")
@@ -4725,6 +4771,7 @@ function keysScreen(): readonly KeySection[] | undefined {
   if (prompt.value.length > 0) return undefined;
   if (play?.on)
     return play.chords.on ? [...KEYS.play, ...KEYS.chords] : KEYS.play;
+  if (patchView.on) return KEYS.patch;
   if (tape.on) return KEYS.tape;
   return KEYS.prompt;
 }
@@ -5729,6 +5776,7 @@ function echoGesture(commands: readonly string[]): void {
 async function enterTape(): Promise<Receipt> {
   if (play?.on) await play.exit();
   if (tape.on) return ok("tape · esc goes home");
+  exitPatch();
   closeFader();
   if (menu.open) menu.close();
   tape.on = true;
@@ -5739,6 +5787,128 @@ async function enterTape(): Promise<Receipt> {
   return ok(
     `tape · ${score.tracks.length} track${score.tracks.length === 1 ? "" : "s"} · ${score.bars} bars · ? keys · esc home`,
   );
+}
+
+/** `/patch [--fx <name>]`: the patch view on the focused track. */
+async function enterPatch(fx?: string): Promise<Receipt> {
+  const model = patchModel(score, requestedTrack, fx);
+  if (typeof model === "string") return fail(model);
+  if (play?.on) await play.exit();
+  closeFader();
+  if (menu.open) menu.close();
+  if (tape.on) exitTape();
+  if (!patchView.on || patchView.state.fx !== fx) {
+    patchView.state = patchViewState(fx);
+    patchView.cables = undefined;
+  }
+  patchView.on = true;
+  const patch = model.patch;
+  const what = model.preview
+    ? "a preview · patch convert makes it a patch"
+    : model.ref !== undefined
+      ? `library ${model.ref} · patch detach edits it`
+      : `${patch.nodes.length} nodes · ${patch.cables.length} cables`;
+  return ok(
+    `patch ${model.track.id} ▸ ${patch.name} · ${what} · ? keys · esc home`,
+  );
+}
+
+function exitPatch(): Receipt {
+  if (!patchView.on) return ok("the patch view is off");
+  patchView.on = false;
+  return ok("home");
+}
+
+/** The patch view's paint, or undefined when its track or patch went away. */
+function currentPatchPaint(value: TrackScore): PatchPaint | undefined {
+  const model = patchModel(value, requestedTrack, patchView.state.fx);
+  if (typeof model === "string") return undefined;
+  const cables = model.patch.cables;
+  const key = `${model.track.id} ${model.fx ?? ""}`;
+  const before = patchView.cables;
+  patchView.cables = { key, list: cables };
+  if (before?.key === key && before.list !== cables) {
+    const added = newCables(before.list, cables).at(-1);
+    if (added) focusCable(patchView.state, model, added);
+  }
+  clampState(patchView.state, model);
+  return patchPaint(model, patchView.state);
+}
+
+/**
+ * One key on the patch view. True when it consumed the key; false sends
+ * it on (the prompt once a command is typed, overlays, ctrl keys).
+ */
+function patchInput(value: string): boolean {
+  if (!patchView.on || play?.on) return false;
+  if (tui.ui.overlay !== undefined || menu.open) return false;
+  if (prompt.value.length > 0) return false;
+  if (value === "/" || value === "\u0003") return false;
+  const model = patchModel(score, requestedTrack, patchView.state.fx);
+  if (typeof model === "string") {
+    tui.activity.pushCard(model, { tone: "info" });
+    receipt(exitPatch());
+    return true;
+  }
+  clampState(patchView.state, model);
+  const action = patchKey(patchView.state, model, value);
+  switch (action.type) {
+    case "run":
+      runTyped(action.commands);
+      return true;
+    case "node": {
+      const context = menuContext();
+      const fx = patchView.state.fx;
+      menu.show(context, fx === undefined ? "patch" : `patch:fx:${fx}`);
+      if (
+        !menu.enter(context, "patch:nodes") ||
+        !menu.enter(context, nodeMenuId(action.nodeId))
+      ) {
+        menu.close();
+        tui.activity.pushCard(`patch set ${action.nodeId} <param>=<value>`, {
+          tone: "info",
+        });
+      }
+      return true;
+    }
+    case "pick":
+      tui.openPicker({
+        id: action.id,
+        title: action.title,
+        // The add list hears each node on the loop (enter keeps, esc
+        // reverts), as /try and the kit list do.
+        hint: action.id === "patch-add" ? HINTS.audition : HINTS.list,
+        audition: action.id === "patch-add",
+        items: action.items.map((item) => ({
+          label: item.label,
+          value: item.value,
+        })),
+        filterable: true,
+      });
+      return true;
+    case "prefill":
+      prompt.handle({ type: "text", text: action.text });
+      return true;
+    case "note":
+      tui.activity.pushCard(action.message, { tone: "info" });
+      return true;
+    case "audition":
+      void auditionKeyPressed("loop");
+      return true;
+    case "keys":
+      showKeys();
+      return true;
+    case "exit":
+      receipt(exitPatch());
+      return true;
+    case "handled":
+      return true;
+    case "pass":
+      break;
+  }
+  // Unmapped printable keys are swallowed (as on TAPE); control keys
+  // (enter, ctrl-z, ctrl-k) keep their bindings.
+  return value.length === 1 && value >= " " && value !== "\u007f";
 }
 
 function exitTape(): Receipt {

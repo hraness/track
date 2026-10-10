@@ -29,7 +29,7 @@ and its own undo.
 
 In a shell, open a pane on one screen:
 
-- `dawg pane home|play|tape|sound|menu [track] [pin]`
+- `dawg pane home|play|tape|sound|menu|patch [track] [pin]`
 
 ## Next
 
