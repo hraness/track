@@ -418,6 +418,36 @@ export function matrixAxes(
   return { rows, cols };
 }
 
+/**
+ * Put the selection on a cable's cell (§7.5: show-me lands on the cell
+ * the agent, or another pane, just wired): its source node, the matrix
+ * pane, and its row and column. False when the cable is not in the patch.
+ */
+export function focusCable(
+  state: PatchViewState,
+  model: PatchModel,
+  cable: Readonly<{ from: string; to: string }>,
+): boolean {
+  const node = model.nodes.findIndex((n) => n.id === splitPort(cable.from)[0]);
+  if (node < 0) return false;
+  const next = { ...state, node };
+  const { rows, cols } = matrixAxes(model, next);
+  const row = rows.findIndex((r) => r.ref === cable.from);
+  const col = cols.findIndex((c) => c.ref === cable.to);
+  if (row < 0 || col < 0) return false;
+  Object.assign(state, { node, row, col, pane: "matrix" });
+  return true;
+}
+
+/** Cables in `now` and not in `before`, by from and to (ids may be new). */
+export function newCables(
+  before: readonly Cable[],
+  now: readonly Cable[],
+): Cable[] {
+  const seen = new Set(before.map((c) => `${c.from} ${c.to}`));
+  return now.filter((c) => !seen.has(`${c.from} ${c.to}`));
+}
+
 function clampIndex(index: number, length: number): number {
   return Math.max(0, Math.min(length - 1, index));
 }

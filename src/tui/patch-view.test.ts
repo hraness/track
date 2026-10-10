@@ -10,7 +10,9 @@ import { CellBuffer } from "../../tui/screen.ts";
 import { PATCH_NODES_MAX, paintPatch } from "../../tui/patch.ts";
 import { getTheme } from "../../tui/theme.ts";
 import {
+  focusCable,
   legalCable,
+  newCables,
   matrixAxes,
   patchKey,
   patchModel,
@@ -386,5 +388,24 @@ describe("paintPatch", () => {
       [60, 5],
     ] as const)
       expect(() => paint(w, h, m, patchViewState())).not.toThrow();
+  });
+});
+
+describe("show-me (§7.5)", () => {
+  test("a cable wired elsewhere puts the selection on its cell", () => {
+    const m = model(acid());
+    const state = patchViewState();
+    const last = m.patch.cables.at(-1)!;
+    const before = m.patch.cables.slice(0, -1);
+    expect(newCables(before, m.patch.cables)).toEqual([last]);
+    expect(newCables(m.patch.cables, m.patch.cables)).toEqual([]);
+    expect(focusCable(state, m, last)).toBe(true);
+    expect(state.pane).toBe("matrix");
+    const { rows, cols } = matrixAxes(m, state);
+    expect(rows[state.row]!.ref).toBe(last.from);
+    expect(cols[state.col]!.ref).toBe(last.to);
+    expect(focusCable(state, m, { from: "nope.out", to: "out.in" })).toBe(
+      false,
+    );
   });
 });
