@@ -95,18 +95,15 @@ for (const [cols, rows] of [
         await t.send("section chorus 5-8\r");
         await t.send("track drums\r");
         await t.send("track bass\r");
-        await waitFor(
-          async () => (await session(t.cwd))?.score.notes.length === 2,
-          "two notes",
-        );
-        // `track bass` lands before Ctrl-T (a loaded runner can lag it).
-        await t.until(
-          () => /· bass\b/.test(t.vt.lines()[0] ?? ""),
-          "bass focused",
-        );
+        // Every queued line has run before Ctrl-T: the notes land before the
+        // sections, and bass is focused from launch, so neither the session
+        // file nor the header says the sections and `track bass` ran.
+        await t.settle("seven lines applied");
+        expect((await session(t.cwd))?.score.notes.length).toBe(2);
+        expect(t.vt.lines()[0]).toMatch(/· bass\b/);
 
         // Ctrl-T: TAPE replaces the highway; the hint row teaches keys.
-        await t.send("\u0014");
+        await t.type("\u0014", "tape opened");
         await t.until(() => t.vt.text().includes("range: bass"), "tape");
         const text = t.vt.text();
         expect(text).toContain("▼");
@@ -297,8 +294,10 @@ test.skipIf(!supported)(
         "section verse 1-4",
       ])
         await t.send(`${line}\r`);
-      await waitFor(async () => (await bassNotes()).length === 1, "one note");
-      await t.send("\u0014");
+      // `section verse` runs after the note: wait for the whole queue.
+      await t.settle("five lines applied");
+      expect(await bassNotes()).toEqual([0]);
+      await t.type("\u0014", "tape opened");
       await t.until(() => t.vt.text().includes("range: bass"), "tape");
 
       // Loop the verse, shrink it to one bar with `[`, and copy it.
