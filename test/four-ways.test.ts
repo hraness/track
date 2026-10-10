@@ -37,12 +37,6 @@ type Feature = Readonly<{
   gap?: Readonly<Partial<Record<"menu" | "agent" | "sdk", string>>>;
 }>;
 
-// TODO(patcher lane 4): drop this gap when the SDK builder merges; the
-// test fails as soon as the door opens.
-const PATCH_GAPS = {
-  sdk: "patch(), fxPatch(), macro(), track.patch and song.patches land with patcher lane 4 (SDK 1.34.0)",
-} as const;
-
 export const FEATURES: readonly Feature[] = [
   {
     feature: "notes",
@@ -244,63 +238,57 @@ export const FEATURES: readonly Feature[] = [
     sdk: ["sdk:rig", "track.fx"],
   },
   // Patcher (design §6.1, §7.4): every `patch` verb. The Sound › Patch rows
-  // live in src/tui/patch-menu.ts, the SDK builder lands with lane 4
-  // (SDK 1.34.0: patch(), fxPatch(), macro(), track.patch, song.patches).
+  // live in src/tui/patch-menu.ts; the SDK door is the builder (SDK 1.35.0):
+  // `instrument: patch(…)`, `fx: { patch: [fxPatch(…)] }`, `song.patches`,
+  // macros through `patch()`'s build callback and `patch({ ref, macros })`.
   {
     feature: "patch new",
     command: "patch new mine",
     menu: "Sound › Patch › New patch…",
     tools: ["patch_edit"],
     sdk: ["sdk:patch", "sdk:fxPatch", "song.patches"],
-    gap: PATCH_GAPS,
   },
   {
     feature: "patch add",
     command: "patch add osc as tone",
     menu: "Sound › Patch › Add node…",
     tools: ["patch_edit"],
-    sdk: ["sdk:patch"],
-    gap: PATCH_GAPS,
+    sdk: ["sdk:patch", "track.instrument"],
   },
   {
     feature: "patch set",
     command: "patch set tone wave=saw",
     menu: "Sound › Patch › Set node",
     tools: ["patch_edit"],
-    sdk: ["sdk:patch"],
-    gap: PATCH_GAPS,
+    sdk: ["sdk:patch", "track.instrument"],
   },
   {
     feature: "patch wire",
     command: "patch wire tone.out out.audio",
     menu: "Sound › Patch › Wire…",
     tools: ["patch_edit"],
-    sdk: ["sdk:patch"],
-    gap: PATCH_GAPS,
+    sdk: ["sdk:patch", "track.instrument"],
   },
   {
     feature: "patch unwire",
     command: "patch unwire tone.out out.audio",
     menu: "Sound › Patch › Unwire…",
     tools: ["patch_edit"],
-    sdk: ["sdk:patch"],
-    gap: PATCH_GAPS,
+    sdk: ["sdk:patch", "track.instrument"],
   },
   {
     feature: "patch macro",
     command: "patch macro cutoff vcf.cutoff",
     menu: "Sound › Patch › Map to knob…",
     tools: ["patch_edit"],
-    sdk: ["sdk:macro"],
-    gap: PATCH_GAPS,
+    sdk: ["sdk:patch"],
   },
   {
     feature: "patch knob",
     command: "patch knob cutoff 900",
     menu: "Sound › Patch › Turn knob",
     tools: ["patch_edit"],
-    sdk: ["track.patch"],
-    gap: PATCH_GAPS,
+    sdk: ["sdk:patch", "track.instrument"],
   },
   {
     feature: "patch rate",
@@ -308,47 +296,41 @@ export const FEATURES: readonly Feature[] = [
     menu: "Sound › Patch › Node rate…",
     tools: ["patch_edit"],
     sdk: ["sdk:patch"],
-    gap: PATCH_GAPS,
   },
   {
     feature: "patch rm",
     command: "patch rm tone",
     menu: "Sound › Patch › Remove node…",
     tools: ["patch_edit"],
-    sdk: ["sdk:patch"],
-    gap: PATCH_GAPS,
+    sdk: ["sdk:patch", "track.instrument"],
   },
   {
     feature: "patch convert",
     command: "patch convert",
     menu: "Sound › Patch › Convert to patch",
     tools: ["patch_edit"],
-    sdk: ["track.patch"],
-    gap: PATCH_GAPS,
+    sdk: ["sdk:patch", "track.instrument"],
   },
   {
     feature: "patch detach",
     command: "patch detach",
     menu: "Sound › Patch › Detach",
     tools: ["patch_edit"],
-    sdk: ["track.patch"],
-    gap: PATCH_GAPS,
+    sdk: ["track.instrument", "track.synth"],
   },
   {
     feature: "patch save",
     command: "patch save mine",
     menu: "Sound › Patch › Save patch…",
     tools: ["patch_edit"],
-    sdk: ["song.patches"],
-    gap: PATCH_GAPS,
+    sdk: ["song.patches", "sdk:patch"],
   },
   {
     feature: "patch load",
     command: "patch load acid-bass",
     menu: "Sound › Patch › Load patch…",
     tools: ["patch_edit"],
-    sdk: ["track.patch"],
-    gap: PATCH_GAPS,
+    sdk: ["sdk:patch", "song.patches"],
   },
   {
     feature: "patch show",
@@ -356,7 +338,6 @@ export const FEATURES: readonly Feature[] = [
     menu: "Sound › Patch › Show as text",
     tools: ["patch_edit"],
     sdk: ["sdk:patch"],
-    gap: PATCH_GAPS,
   },
   {
     feature: "patch nodes",
@@ -364,27 +345,25 @@ export const FEATURES: readonly Feature[] = [
     menu: "Sound › Patch › List node types",
     tools: ["patch_edit"],
     sdk: ["sdk:patch"],
-    gap: PATCH_GAPS,
   },
   {
     feature: "effect patch",
     command: "patch new wobble effect",
     menu: "Effects › Add effect patch",
     tools: ["patch_edit"],
-    sdk: ["sdk:fxPatch"],
-    gap: PATCH_GAPS,
+    sdk: ["sdk:fxPatch", "track.fx"],
   },
   {
     feature: "patch mod",
     command: "patch mod cutoff sine.slow(4)",
     menu: "verb:patch mod",
     tools: ["patch_edit"],
-    sdk: ["track.mods"],
-    // TODO(patcher lane 4): pattern signals (sine.range(…), pat("…")) are
-    // SDK 1.34.0; the typed verb parses and says so until then.
+    // The SDK drives a macro with a pattern (`mods: { cutoff: sine.slow(4) }`,
+    // SDK 1.35.0). `mods` is input only: song() bakes it into the
+    // `patch-<macro>` lane under `automation`, which the printer writes back.
+    sdk: ["sdk:pat", "sdk:irand", "track.automation"],
     gap: {
-      menu: "a pattern is typed text; ctrl-k gets a row once patterns land with lane 4",
-      sdk: "track mods: and pattern signals land with patcher lane 4 (SDK 1.34.0)",
+      menu: "the typed verb still refuses (it needs a parser for pattern text); its ctrl-k row comes with it",
     },
   },
 ];

@@ -10,7 +10,7 @@
  *   patch macro <id> <node.port>[:min..max] … [range a..b] [default x] [curve exp] [label "…"]
  *   patch knob <macro> <value>                       sets a macro's value (a knob)
  *   patch rate <id> global|voice                     forces a node to run once per track
- *   patch mod <macro|node.port> <pattern>            (needs the SDK's pattern signals)
+ *   patch mod <macro|node.port> <pattern>            (refuses: typed patterns need a parser; SDK mods: work)
  *   patch rm <id>                                    a node (and its cables) or a macro
  *   patch convert                                    the instrument, wrapped as a patch
  *   patch detach                                     a shared library patch, copied into the track
@@ -1037,7 +1037,7 @@ function applyOne(
     }
     case "patch-mod":
       return bad(
-        "patch mod: pattern signals arrive with SDK 1.34 (sine.range(…) on mods:); set the macro with patch knob for now",
+        "patch mod: typed patterns are not wired yet; write mods: { cutoff: sine.slow(4) } in the track file (SDK 1.35.0), or set the macro with patch knob",
       );
     case "patch-new":
     case "patch-load": {
