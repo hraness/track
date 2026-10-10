@@ -54,7 +54,7 @@ describe("ctrl-k patch rows", () => {
       patch: builtinPatch("acid-bass"),
     });
     const ctx = context(score);
-    const rows = table(ctx, patchMenuNode(ctx, score.tracks[0]));
+    const rows = table(ctx, [patchMenuNode(ctx)]);
     expect(rows[0]).toBe("patch › Edit patch · /patch");
     const knobs = rows.filter((row) => row.startsWith("patch › knobs › "));
     expect(knobs).toHaveLength(4);
@@ -62,14 +62,17 @@ describe("ctrl-k patch rows", () => {
     const nodes = rows.filter((row) => row.startsWith("patch › nodes › "));
     expect(nodes.length).toBeGreaterThan(0);
     for (const row of nodes) expect(row).toMatch(/ · patch set \S+ \S+=\S+$/);
+    // Then the typed-entry rows (lane 5): new, load, add node, wire, …
+    expect(rows).toContain("patch › show as text · patch show");
   });
 
-  test("a track that is not a patch offers the preview only", () => {
+  test("a track that is not a patch offers the preview and new/convert", () => {
     const score = song({ instrument: "bass" });
     const ctx = context(score);
-    expect(table(ctx, patchMenuNode(ctx, score.tracks[0]))).toEqual([
-      "patch › Edit patch · /patch",
-    ]);
+    const rows = table(ctx, [patchMenuNode(ctx)]);
+    expect(rows[0]).toBe("patch › Edit patch · /patch");
+    expect(rows).toContain("patch › convert to patch · patch convert");
+    expect(rows.some((row) => row.includes("knobs"))).toBe(false);
   });
 
   test("an effect patch aims every row with --fx", () => {
