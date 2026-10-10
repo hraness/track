@@ -63,26 +63,25 @@ test("perf gate: the first choir key after the play-mode warm renders within 30 
   expect((performance.now() - started) / unit).toBeLessThan(30);
 }, 60_000);
 
-test("perf gate: the patch runner plays a voice-sample within 18 calibration units (ns per ms of calibration)", () => {
-  // 16 voices x 12 nodes (bench/perf/patch-runner.ts): about 7.5 units on
-  // a 2026 laptop with the fused voice block (about 15.6 for the reference
-  // interpreter, 9.6 for the first fused block, 15 before fusion; the
-  // prototype in patch-kernel.ts is about 7). A per-sample allocation or
-  // closure trips it.
+test("perf gate: the patch runner plays a voice-sample within 19 calibration units (ns per ms of calibration)", () => {
+  // 16 voices x 12 nodes (bench/perf/patch-runner.ts): about 7.4 units on
+  // a 2026 arm64 laptop and 16.3 on the x64 CI runner with the fused voice
+  // block (the first fused block: 9.4 and 20.8; the reference interpreter
+  // about 15.3 on the laptop; the prototype in patch-kernel.ts about 7).
+  // A per-sample allocation or closure trips it.
   const unit = calibrate();
   const ns = Math.min(...patchRunner(3));
   console.log(`patch runner: ${(ns / unit).toFixed(2)} units`);
-  expect(ns / unit).toBeLessThan(18);
+  expect(ns / unit).toBeLessThan(19);
 }, 60_000);
 
-test("perf gate: the fused voice block runs within 0.56x of the reference interpreter", () => {
-  // Same process, same patch, so machine speed cancels: about 0.47 on a
-  // 2026 laptop (0.61 for the first fused block, before register-held
-  // intermediates, direct fan-ins and voice sums, and per-rate constants).
-  // Losing the loop fusion or the inlined kernels (fuse.ts, kernels.ts)
-  // puts it near 1.
+test("perf gate: the fused voice block runs within 0.68x of the reference interpreter", () => {
+  // Same process, same patch, so machine speed cancels: about 0.46 on a
+  // 2026 arm64 laptop and 0.62 on the x64 CI runner (the first fused
+  // block: 0.60 and 0.69). Losing the loop fusion, the inlined kernels or
+  // the register-held intermediates (fuse.ts, kernels.ts) puts it near 1.
   const fused = Math.min(...patchRunner(3));
   const interp = Math.min(...patchRunner(3, false));
   console.log(`patch runner: fused/interpreter ${(fused / interp).toFixed(3)}`);
-  expect(fused / interp).toBeLessThan(0.56);
+  expect(fused / interp).toBeLessThan(0.68);
 }, 60_000);
