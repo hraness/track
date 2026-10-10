@@ -239,6 +239,24 @@ describe("fused voice block", () => {
     expect(made).toBe(PATCHES);
   }, 60_000);
 
+  test("one program renders the same bytes fused and interpreted at each sample rate", () => {
+    // The fused block embeds the rate and the constant controls, built
+    // once per program and rate; a second rate must not reuse the first.
+    let made = 0;
+    for (const { program, options } of cases(777)) {
+      for (const sampleRate of [48_000, 44_100, 48_000, 22_050]) {
+        const o = { ...options, sampleRate };
+        const fused = runPatch(program, o);
+        const plain = runPatch(program, { ...o, fuse: false });
+        expect(bytes(fused.left).equals(bytes(plain.left))).toBe(true);
+        expect(bytes(fused.right).equals(bytes(plain.right))).toBe(true);
+      }
+      made += 1;
+      if (made === 12) break;
+    }
+    expect(made).toBe(12);
+  }, 60_000);
+
   test("literals round-trip every double the generated code embeds", () => {
     for (const x of [
       0,
