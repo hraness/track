@@ -10,6 +10,7 @@ import { CellBuffer } from "../../tui/screen.ts";
 import { PATCH_NODES_MAX, paintPatch } from "../../tui/patch.ts";
 import { getTheme } from "../../tui/theme.ts";
 import { isStageable } from "./audition.ts";
+import { applyPatchCommand, parsePatchCommand } from "../commands/patch.ts";
 import {
   focusCable,
   legalCable,
@@ -430,5 +431,53 @@ describe("audition (§7 a, space)", () => {
     for (const item of pick.items) expect(isStageable(item.value)).toBe(true);
     expect(isStageable("patch save mine")).toBe(false);
     expect(isStageable("patch list")).toBe(false);
+  });
+});
+
+describe("every key's command runs as typed (lane 5 grammar)", () => {
+  /** Each command a key produces, from each pane and node. */
+  function emitted(m: PatchModel): string[] {
+    const out = new Set<string>();
+    const collect = (action: ReturnType<typeof patchKey>) => {
+      if (action.type === "run") for (const c of action.commands) out.add(c);
+      if (action.type === "pick")
+        for (const i of action.items) out.add(i.value);
+    };
+    for (let node = 0; node < m.nodes.length; node++) {
+      for (const pane of ["nodes", "ports", "knobs"] as const) {
+        for (const key of ["a", "w", "x", "m", "g", "\u001b[C", "\u001b[D"]) {
+          const state = patchViewState();
+          state.node = node;
+          state.pane = pane;
+          collect(patchKey(state, m, key));
+        }
+      }
+    }
+    const state = patchViewState();
+    state.full = true;
+    state.pane = "matrix";
+    const { rows, cols } = matrixAxes(m, state);
+    for (let row = 0; row < rows.length; row++)
+      for (let col = 0; col < cols.length; col++)
+        for (const key of ["\r", "]", "5"]) {
+          state.row = row;
+          state.col = col;
+          collect(patchKey(state, m, key));
+        }
+    return [...out];
+  }
+
+  test("each parses and applies to the patch it was made from", () => {
+    const score = acid();
+    const commands = emitted(model(score));
+    expect(commands.length).toBeGreaterThan(40);
+    for (const verb of ["add", "wire", "unwire", "rm", "knob", "macro"])
+      expect(commands.some((c) => c.startsWith(`patch ${verb} `))).toBe(true);
+    for (const line of commands) {
+      const parsed = parsePatchCommand(line);
+      expect(parsed, line).toBeDefined();
+      const result = applyPatchCommand(score, "t", parsed!);
+      expect(result.ok ? "" : `${line}: ${result.message}`).toBe("");
+    }
   });
 });
