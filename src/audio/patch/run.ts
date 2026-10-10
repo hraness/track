@@ -589,7 +589,7 @@ function output(
 }
 
 type Fused = ReturnType<typeof fuseVoice>;
-const FUSED = new WeakMap<PatchProgram, readonly [Fused, Fused]>();
+const FUSED = new WeakMap<PatchProgram, Map<number, readonly [Fused, Fused]>>();
 
 /** Kernel function names for the fused block (fuse.ts `KernelOf`). */
 const KERNEL_NAMES: Readonly<Record<number, string>> = {
@@ -640,8 +640,13 @@ const kernelOf = (op: number, n: number): string | null =>
         : null;
 
 /** The program's fused voice blocks (first block, later blocks), built once. */
-function fusedOf(program: PatchProgram): readonly [Fused, Fused] {
-  let fused = FUSED.get(program);
+function fusedOf(
+  program: PatchProgram,
+  sampleRate: number,
+): readonly [Fused, Fused] {
+  let bySr = FUSED.get(program);
+  if (!bySr) FUSED.set(program, (bySr = new Map()));
+  let fused = bySr.get(sampleRate);
   if (fused) return fused;
   const deps = {
     voiceUsed: program.voiceUsed,
@@ -671,10 +676,10 @@ function fusedOf(program: PatchProgram): readonly [Fused, Fused] {
   };
   const v = program.voice;
   fused = [
-    fuseVoice(v, program.consts, true, kernelOf, deps),
-    fuseVoice(v, program.consts, false, kernelOf, deps),
+    fuseVoice(v, program.consts, true, kernelOf, deps, program, sampleRate),
+    fuseVoice(v, program.consts, false, kernelOf, deps, program, sampleRate),
   ];
-  FUSED.set(program, fused);
+  bySr.set(sampleRate, fused);
   return fused;
 }
 
@@ -706,7 +711,7 @@ function runVoices(
   const fanOuts = program.fanOuts;
   const sums = program.voiceSums;
   const voiceOp = v.ids.indexOf("voice");
-  const [fusedFirst, fusedNext] = fusedOf(program);
+  const [fusedFirst, fusedNext] = fusedOf(program, sr);
   const fuse = options.fuse ?? true;
   const macroCount = program.macros.length;
   let stolen = 0;
@@ -770,10 +775,16 @@ function runVoices(
         endBlock,
         program.macros[i]!.default,
       );
-    // Fan-outs: global sources at this voice's absolute position.
+    const fused = voice.first ? fusedFirst : fusedNext;
+    // Fan-outs: global sources at this voice's absolute position. A fused
+    // block reads its direct fan-ins from `gm` itself when all are in range.
+    let fanAt = pos;
+    for (let k = 0; k < fanOuts.length; k += 2)
+      if (fanOuts[k]! * stride + pos + BLOCK > gm.length) fanAt = -1;
     for (let k = 0; k < fanOuts.length; k += 2) {
-      const src = fanOuts[k]! * stride + pos;
       const dst = addr(f, fanOuts[k + 1]!);
+      if (fuse && fanAt >= 0 && fused.direct.has(dst)) continue;
+      const src = fanOuts[k]! * stride + pos;
       const vm = f.m;
       // Past the end of the song a source reads as silence; the in-range
       // case stays a plain copy (an out-of-bounds read deoptimizes).
@@ -781,7 +792,12 @@ function runVoices(
         for (let i = 0; i < BLOCK; i += 1) vm[dst + i] = gm[src + i]!;
       else for (let i = 0; i < BLOCK; i += 1) vm[dst + i] = gm[src + i] ?? 0;
     }
-    if (fuse) (voice.first ? fusedFirst : fusedNext)(f, ctx, voice, sr);
+    const fadeAt = voice.fadeAt;
+    const gateOff = voice.note.end;
+    const plain = fadeAt >= pos + BLOCK && pos + BLOCK <= stride - BLOCK;
+    const track = pos + BLOCK > gateOff;
+    const sumAt = fuse && fused.sums && plain && !track ? pos : -1;
+    if (fuse) fused(f, ctx, voice, sr, gm, stride, fanAt, sumAt);
     else
       for (let node = 0; node < v.op.length; node += 1) {
         if (node === voiceOp) {
@@ -797,12 +813,8 @@ function runVoices(
     // Voice sums, with the steal fade, into the global accumulators. The
     // peak (for the silence test) only matters after gate-off.
     let peak = 0;
-    const fadeAt = voice.fadeAt;
-    const gateOff = voice.note.end;
-    const plain = fadeAt >= pos + BLOCK && pos + BLOCK <= stride - BLOCK;
-    const track = pos + BLOCK > gateOff;
     const vm = f.m;
-    for (let k = 0; k < sums.length; k += 2) {
+    for (let k = 0; k < sums.length && sumAt < 0; k += 2) {
       const src = addr(f, sums[k]!);
       const dst = sums[k + 1]! * stride + pos;
       if (plain && !track) {

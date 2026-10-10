@@ -182,13 +182,106 @@ function inputCode(
   };
 }
 
+/**
+ * The value each constant control (a block input with no cables and a
+ * literal base, never re-evaluated) holds after the first block: the
+ * literal clamped and cleaned exactly as the block input code does.
+ */
+function stillValues(
+  section: Section,
+  consts: Float64Array,
+): Map<number, number> {
+  const rec = section.inputs;
+  const known = new Map<number, number>();
+  const hot = new Set(section.hot);
+  for (let n = 0; n < section.op.length; n += 1)
+    for (let j = 0; j < section.inCount[n]!; j += 1) {
+      const record = section.inStart[n]! + j;
+      const r = record * INPUT_WIDTH;
+      if (hot.has(record) || rec[r + F.Kind] !== In.Block) continue;
+      if (rec[r + F.CableCount] !== 0 || rec[r + F.BaseKind] !== Base.Const)
+        continue;
+      const cl = rec[r + F.Clamp]!;
+      const lo = cl >= 0 ? consts[cl]! : -Infinity;
+      const hi = cl >= 0 ? consts[cl + 1]! : Infinity;
+      let value = consts[rec[r + F.BaseIndex]!]!;
+      if (value < lo) value = lo;
+      else if (value > hi) value = hi;
+      if (value !== value) value = 0;
+      known.set(rec[r + F.Ctl]!, value);
+    }
+  return known;
+}
+
+const CALL = /Math\.(sin|cos|tan|pow|exp|log)\(/;
+const LOOP = "/*loop*/";
+const END = "/*end*/";
+const REF = /(?<![\w$])m\[(\d+)( \+ [^\]]+)?\]/g;
+
+/**
+ * Keeps a slot in a local instead of voice memory when one shared sample
+ * loop writes it (every sample, before any read) and nothing else reads
+ * it: no code outside that loop, no kernel function, not the runner
+ * (`keep`). The local holds the same double the store would, so the bytes
+ * do not change.
+ */
+function localize(code: string, keep: ReadonlySet<number>): string {
+  const parts = code.split(LOOP);
+  const loops = parts.slice(1).map((p) => p.split(END));
+  const outside = [parts[0]!, ...loops.map((l) => l[1]!)].join("\n");
+  const owner = new Map<number, number>();
+  const bad = new Set<number>();
+  const base = (x: number) => x - (x % BLOCK);
+  for (const r of outside.matchAll(REF)) bad.add(base(Number(r[1])));
+  loops.forEach(([loop], j) => {
+    for (const r of loop!.matchAll(REF)) {
+      const x = Number(r[1]);
+      if (r[2] !== " + i" || x % BLOCK !== 0) bad.add(base(x));
+      else if ((owner.get(x) ?? j) !== j) bad.add(x);
+      else owner.set(x, j);
+    }
+  });
+  const out = [parts[0]!];
+  loops.forEach(([loop, rest], j) => {
+    let decl = "";
+    let text = loop!;
+    for (const [x, o] of owner) {
+      if (o !== j || bad.has(x) || keep.has(x)) continue;
+      const at = text.indexOf(`m[${x} + i]`);
+      if (!text.startsWith(`m[${x} + i] = `, at)) continue;
+      decl += `let s${x} = 0;\n`;
+      text = text.split(`m[${x} + i] = `).join(`s${x} = `);
+      text = text.split(`m[${x} + i]`).join(`s${x}`);
+    }
+    out.push(decl + text + rest!);
+  });
+  return out.join("");
+}
+
 /** A fused voice block: one block of the voice section, boundary included. */
-export type FusedBlock = (
+export type FusedBlock = ((
   f: unknown,
   ctx: FuseCtx,
   voice: unknown,
   sr: number,
-) => void;
+  gm: Float64Array,
+  stride: number,
+  fanAt: number,
+  sumAt: number,
+) => void) & {
+  /** Fan-in slots the block reads from the global memory itself. */
+  direct: ReadonlySet<number>;
+  /** Whether the block adds the voice sums itself when `sumAt >= 0`. */
+  sums: boolean;
+};
+
+/** The runner's copies around a voice block (compile.ts fanOuts, voiceSums). */
+export type FuseIo = Readonly<{
+  /** Global source slot, voice fan-in slot, per fan-out. */
+  fanOuts: Int32Array;
+  /** Voice source slot, global accumulator slot, per voice sum. */
+  voiceSums: Int32Array;
+}>;
 
 /** Kernel call for node `n` (null: the runner fills it, or nothing to do). */
 export type KernelOf = (op: number, n: number) => string | null;
@@ -205,23 +298,52 @@ export function fuseVoice(
   first: boolean,
   kernelOf: KernelOf,
   deps: Readonly<Record<string, unknown>>,
+  io: FuseIo = { fanOuts: new Int32Array(0), voiceSums: new Int32Array(0) },
+  sampleRate?: number,
 ): FusedBlock {
   const rec = section.inputs;
   let body = "";
+  let head = "";
+  const blockConst = new Map<number, string>();
   // The open group: nodes sharing one sample loop, and the slots they write.
   let group: Parts[] = [];
   let written = new Set<number>();
   const close = () => {
     if (group.length === 1) body += standalone(group[0]!);
     else if (group.length > 1)
-      body += `{\n${group.map((g) => g.pre).join("")}for (let i = 0; i < ${BLOCK}; i += 1) {\n${group.map((g) => `{\n${g.body}}\n`).join("")}}\n${group.map((g) => g.post).join("")}}\n`;
+      body += `{\n${group.map((g) => g.pre).join("")}${LOOP}for (let i = 0; i < ${BLOCK}; i += 1) {\n${group.map((g) => `{\n${g.body}}\n`).join("")}}${END}\n${group.map((g) => g.post).join("")}}\n`;
     group = [];
     written = new Set();
   };
+  const portsEnd = (n: number) =>
+    n + 1 < section.op.length ? section.slotBase[n + 1]! : section.slots.length;
+  // Slots read outside the generated code: delay sources (and the voice
+  // sums, for the blocks the runner adds itself).
+  const keep = new Set<number>();
+  const sumPairs: [number, number][] = [];
+  for (let k = 0; k < io.voiceSums.length; k += 2) {
+    keep.add(voiceAddr(io.voiceSums[k]!));
+    sumPairs.push([voiceAddr(io.voiceSums[k]!), io.voiceSums[k + 1]!]);
+  }
+  for (let d = 0; d < section.delays.length; d += 2)
+    keep.add(voiceAddr(section.delays[d]!));
   const voiceOp = section.ids.indexOf("voice");
   for (let n = 0; n < section.op.length; n += 1) {
     if (n === voiceOp) {
-      group.push(voiceParts(section, n, deps.voiceUsed as number));
+      // The voice's setup goes first in the function; a port that is one
+      // value for the whole block is read as that value, not from memory.
+      const vp = voiceParts(section, n, deps.voiceUsed as number);
+      head += vp.pre;
+      const vbody = vp.body
+        .split("\n")
+        .filter((line) => {
+          const c = /^m\[(\d+) \+ i\] = (n\d+_v\d+);$/.exec(line);
+          if (!c) return true;
+          blockConst.set(Number(c[1]), c[2]!);
+          return false;
+        })
+        .join("\n");
+      group.push({ pre: "", body: vbody, post: vp.post });
       const end =
         n + 1 < section.op.length
           ? section.slotBase[n + 1]!
@@ -249,18 +371,30 @@ export function fuseVoice(
       for (const x of inputs)
         body += scoped(x.body ? standalone(x) : x.pre + x.post, n);
       const call = parts ? standalone(parts) : kernelOf(section.op[n]!, n);
+      // A kernel function reads and writes its ports through the frame.
+      if (!parts)
+        for (let k = section.slotBase[n]!; k < portsEnd(n); k += 1)
+          keep.add(voiceAddr(section.slots[k]!));
       if (call) body += call + "\n";
       continue;
     }
     // A node joins the open group unless it reads a whole block that the
     // group writes (that block is only complete after the loop).
-    if (inputs.some((x) => x.blockReads.some((o) => written.has(o)))) close();
+    // A call the engine cannot inline (Math.sin) spills every value live
+    // across it, so such a node gets a loop of its own.
+    const alone = CALL.test(parts.body);
+    if (alone || inputs.some((x) => x.blockReads.some((o) => written.has(o))))
+      close();
     group.push({
       pre: scoped(inputs.map((x) => x.pre).join(""), n) + parts.pre,
       body: scoped(inputs.map((x) => x.body).join(""), n) + parts.body,
       post: scoped(inputs.map((x) => x.post).join(""), n) + parts.post,
     });
     for (const x of inputs) if (x.write >= 0) written.add(x.write);
+    if (alone) {
+      close();
+      continue;
+    }
     const end =
       n + 1 < section.op.length
         ? section.slotBase[n + 1]!
@@ -268,12 +402,70 @@ export function fuseVoice(
     for (let k = section.slotBase[n]! + section.nIn[n]!; k < end; k += 1)
       written.add(voiceAddr(section.slots[k]!));
   }
+  // The voice sums of a plain block (no steal fade, no silence tracking),
+  // scrubbed and added as run.ts does, each into its own accumulator.
+  const sums =
+    sumPairs.length > 0 &&
+    new Set(sumPairs.map((p) => p[1])).size === sumPairs.length;
+  if (sums) {
+    let sumBody = "";
+    let pre = "";
+    sumPairs.forEach(([x, g], j) => {
+      pre += `const sd${j} = ${g} * stride + sumAt;\n`;
+      sumBody += `{\nconst x = m[${x} + i];\nif (sumAt < 0) out[${x} + i] = x;\nelse if (x - x === 0) gm[sd${j} + i] += x;\nelse ctx.scrubbed += 1;\n}\n`;
+    });
+    group.push({ pre, body: sumBody, post: "" });
+    for (const [x] of sumPairs) keep.delete(x);
+  }
   close();
+  for (const [x, name] of blockConst) {
+    body = body.replace(REF, (ref, at: string) =>
+      Number(at) - (Number(at) % BLOCK) === x ? name : ref,
+    );
+    if (keep.has(x))
+      body = `for (let i = 0; i < ${BLOCK}; i += 1) m[${x} + i] = ${name};\n${body}`;
+  }
+  body = head + body;
+  body = localize(body, keep);
+  // Fan-ins read from the global memory where it covers the block.
+  const direct = new Set<number>();
+  let fans = "";
+  for (let k = 0; k < io.fanOuts.length; k += 2) {
+    const d = voiceAddr(io.fanOuts[k + 1]!);
+    if (keep.has(d)) continue;
+    direct.add(d);
+    fans += `const F${d} = fanAt >= 0 ? gm : m;\nconst o${d} = fanAt >= 0 ? ${io.fanOuts[k]!} * stride + fanAt : ${d};\n`;
+  }
+  body = body.replace(REF, (ref, at: string, rest: string | undefined) => {
+    const x = Number(at);
+    const d = x - (x % BLOCK);
+    if (!direct.has(d)) return ref;
+    return rest ? `F${d}[o${d} + ${x - d}${rest}]` : `F${d}[o${d} + ${x - d}]`;
+  });
+  // With the sample rate fixed, a constant control's cell holds a value
+  // known now, so its reads become literals. (Hoisting the block constants
+  // these feed out of the block function as closure constants made it
+  // about 8x slower on x64 JavaScriptCore, so they stay in place.)
+  function fold(): void {
+    const known = stillValues(section, consts);
+    body = body.split("f.sampleRate").join(lit(sampleRate!));
+    body = body.replace(
+      /(?<![\w$])(ctl|prev)\[(\d+)\](?!\s*=[^=])/g,
+      (ref, _a: string, c: string) => {
+        const value = known.get(Number(c));
+        return value === undefined ? ref : lit(value);
+      },
+    );
+  }
   const names = Object.keys(deps);
-  const code = `"use strict";\n${KERNEL_HELPERS}\nreturn function fused(f, ctx, voice, sr) {\nconst m = f.m;\nconst st = f.st;\nconst ctl = f.ctl;\nconst prev = f.prev;\nconst k = ctx.consts;\n${body}};`;
+  if (sampleRate !== undefined) fold();
+  const code = `"use strict";\n${KERNEL_HELPERS}\nreturn function fused(f, ctx, voice, sr, gm, stride, fanAt, sumAt) {\nconst m = f.m;\nconst out = m;\n${fans}const st = f.st;\nconst ctl = f.ctl;\nconst prev = f.prev;\nconst k = ctx.consts;\n${body}};`;
   // eslint-disable-next-line @typescript-eslint/no-implied-eval
   const make = new Function("mapMacro", ...names, code) as (
     ...a: unknown[]
   ) => never;
-  return make(mapMacro, ...names.map((name) => deps[name]));
+  const fn = make(mapMacro, ...names.map((name) => deps[name])) as (
+    ...a: unknown[]
+  ) => void;
+  return Object.assign(fn, { direct, sums });
 }

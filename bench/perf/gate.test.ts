@@ -63,21 +63,25 @@ test("perf gate: the first choir key after the play-mode warm renders within 30 
   expect((performance.now() - started) / unit).toBeLessThan(30);
 }, 60_000);
 
-test("perf gate: the patch runner plays a voice-sample within 24 calibration units (ns per ms of calibration)", () => {
-  // 16 voices x 12 nodes (bench/perf/patch-runner.ts): about 9.5 units on
-  // a 2026 laptop with the fused voice block (about 15.7 for the reference
-  // interpreter, 15 before fusion; the prototype in patch-kernel.ts is
-  // about 7). A per-sample allocation or closure trips it.
+test("perf gate: the patch runner plays a voice-sample within 19 calibration units (ns per ms of calibration)", () => {
+  // 16 voices x 12 nodes (bench/perf/patch-runner.ts): about 7.4 units on
+  // a 2026 arm64 laptop and 16.3 on the x64 CI runner with the fused voice
+  // block (the first fused block: 9.4 and 20.8; the reference interpreter
+  // about 15.3 on the laptop; the prototype in patch-kernel.ts about 7).
+  // A per-sample allocation or closure trips it.
   const unit = calibrate();
   const ns = Math.min(...patchRunner(3));
-  expect(ns / unit).toBeLessThan(24);
+  console.log(`patch runner: ${(ns / unit).toFixed(2)} units`);
+  expect(ns / unit).toBeLessThan(19);
 }, 60_000);
 
-test("perf gate: the fused voice block runs within 0.8x of the reference interpreter", () => {
-  // Same process, same patch, so machine speed cancels: about 0.60 on a
-  // 2026 laptop. Losing the loop fusion or the inlined kernels (fuse.ts,
-  // kernels.ts) puts it near 1.
+test("perf gate: the fused voice block runs within 0.68x of the reference interpreter", () => {
+  // Same process, same patch, so machine speed cancels: about 0.46 on a
+  // 2026 arm64 laptop and 0.62 on the x64 CI runner (the first fused
+  // block: 0.60 and 0.69). Losing the loop fusion, the inlined kernels or
+  // the register-held intermediates (fuse.ts, kernels.ts) puts it near 1.
   const fused = Math.min(...patchRunner(3));
   const interp = Math.min(...patchRunner(3, false));
-  expect(fused / interp).toBeLessThan(0.8);
+  console.log(`patch runner: fused/interpreter ${(fused / interp).toFixed(3)}`);
+  expect(fused / interp).toBeLessThan(0.68);
 }, 60_000);
