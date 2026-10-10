@@ -339,6 +339,15 @@ describe("paintPatch", () => {
     for (const line of lines) expect(line.length).toBeLessThanOrEqual(80);
   });
 
+  test("80x24 frame (§7.2), unicode and ASCII", () => {
+    const m = model(acid());
+    const state = patchViewState();
+    expect(paint(80, 24, m, state).join("\n")).toMatchSnapshot();
+    expect(
+      paint(80, 24, m, state, { theme: "mono", unicode: false }).join("\n"),
+    ).toMatchSnapshot();
+  });
+
   test("a short body shows the matrix alone while it has focus", () => {
     const m = model(acid());
     const state = patchViewState();

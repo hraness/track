@@ -409,7 +409,9 @@ function paintLists(
       portsX + 2 + nameWidth,
       y,
       truncate(
-        port.kind === "param" ? port.value : `${mark} ${port.value || "·"}`,
+        port.kind === "param"
+          ? port.value
+          : `${mark} ${port.value || (unicode ? "·" : "-")}`,
         portsWidth - nameWidth - 3,
       ),
       port.kind === "param" ? roles.text : roles.faint,

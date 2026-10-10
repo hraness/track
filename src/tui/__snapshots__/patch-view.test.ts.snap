@@ -1,0 +1,55 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`paintPatch 80x24 frame (§7.2), unicode and ASCII 1`] = `
+" patch t ▸ acid-bass (instrument · 7 nodes · 10 cables · 1 voice)               
+ NODES                        │ voice  voice                                    
+▸voice    ◆                   │▸pitch     → tone.pitch                          
+ tone     ◆ osc saw           │ note      → ·                                   
+ env      ◆ adsr              │ gate      → amp.gate, env.gate                  
+ envamt   ◆ scale lin         │ velocity  → ·                                   
+ amp      ◆ adsr              │ phase     → ·                                   
+ vcf      ◆ svf lp            │ random    → ·                                   
+ vca      ◆                   │ index     → ·                                   
+ drive    ● fx.distort soft   │ age       → ·                                   
+ out      ●                   │                                                 
+────────────────────────────────────────────────────────────────────────────────
+ CABLES         tone.pitch env.gate amp.gate                                    
+ voice.pitch    ▪          ·        ·                                           
+ voice.note     ·          ·        ·                                           
+ voice.gate     ·          ▪        ▪                                           
+ voice.velocity ·          ·        ·                                           
+ voice.phase    ·          ·        ·                                           
+ voice.random   ·          ·        ·                                           
+ voice.index    ·          ·        ·                                           
+ voice.age      ·          ·        ·                                           
+ ◆ voice ● global ~ audio ▪ control ♪ notes Σ voice sum ✕ dropped               
+ ● Cutoff 600 ███── ▲ Reso 0.7 █████── ■ Env 2400 ███──── ◆ Drive 2.5 ██────    
+ tab pane · enter edit · a add · w wire · x remove · m knob · ? keys            "
+`;
+
+exports[`paintPatch 80x24 frame (§7.2), unicode and ASCII 2`] = `
+" patch t > acid-bass (instrument · 7 nodes · 10 cables · 1 voice)               
+ NODES                        | voice  voice                                    
+>voice    v                   |>pitch     -> tone.pitch                         
+ tone     v osc saw           | note      -> -                                  
+ env      v adsr              | gate      -> amp.gate, env.gate                 
+ envamt   v scale lin         | velocity  -> -                                  
+ amp      v adsr              | phase     -> -                                  
+ vcf      v svf lp            | random    -> -                                  
+ vca      v                   | index     -> -                                  
+ drive    g fx.distort soft   | age       -> -                                  
+ out      g                   |                                                 
+--------------------------------------------------------------------------------
+ CABLES         tone.pitch env.gate amp.gate                                    
+ voice.pitch    #          .        .                                           
+ voice.note     .          .        .                                           
+ voice.gate     .          #        #                                           
+ voice.velocity .          .        .                                           
+ voice.phase    .          .        .                                           
+ voice.random   .          .        .                                           
+ voice.index    .          .        .                                           
+ voice.age      .          .        .                                           
+ v voice g global ~ audio # control n notes S voice sum x dropped               
+ o Cutoff 600 ===-- ^ Reso 0.7 =====-- # Env 2400 ===---- * Drive 2.5 ==----    
+ tab pane · enter edit · a add · w wire · x remove · m knob · ? keys            "
+`;
