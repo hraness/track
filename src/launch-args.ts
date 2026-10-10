@@ -41,7 +41,14 @@ export const BOOLEAN_FLAGS: readonly string[] = [
 export type TrackArg = { id: string; name: string };
 
 /** Screens a pane can open on (§12.5). */
-export const PANE_SCREENS = ["home", "play", "tape", "sound", "menu"] as const;
+export const PANE_SCREENS = [
+  "home",
+  "play",
+  "tape",
+  "sound",
+  "menu",
+  "patch",
+] as const;
 export type PaneScreen = (typeof PANE_SCREENS)[number];
 
 /**
@@ -177,7 +184,7 @@ const SOUND_PARAMS: readonly string[] = [
 ];
 
 const PANE_USAGE =
-  "usage: dawg pane home|play|tape|sound|menu [track] [volume|pan|section] [pin|follow [A-Z]]";
+  "usage: dawg pane home|play|tape|sound|menu|patch [track] [volume|pan|section|fx patch] [pin|follow [A-Z]]";
 
 export function parsePaneArgs(argv: readonly string[]): LaunchParse {
   const [screenWord, ...rest] = argv;
@@ -224,6 +231,7 @@ export function parsePaneArgs(argv: readonly string[]): LaunchParse {
     (first !== undefined &&
       (screen === "home" ||
         screen === "play" ||
+        screen === "patch" ||
         (screen === "sound" && !SOUND_PARAMS.includes(first.toLowerCase()))));
   if (trackFirst) {
     track = normalizeTrackArg(first!);

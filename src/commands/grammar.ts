@@ -335,6 +335,7 @@ export const WINDOW_VERBS: ReadonlySet<string> = new Set([
   "fitmode",
   "euclid",
   "tape",
+  "patch",
   "style",
   "styles",
   "calibration",

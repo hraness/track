@@ -57,6 +57,7 @@ export const CHECK_SIZES: readonly Size[] = [
 export const CHECK_SCENARIOS = [
   "home-playing",
   "tape",
+  "patch",
   "drawer-knobs",
   "menu-depth",
   "help",
@@ -203,6 +204,18 @@ export const SCENARIOS: readonly Scenario[] = [
       await t.until(() => t.vt.text().includes("range: "), "tape");
     },
     marker: (text) => text.includes("range: "),
+    focus: focusShown,
+  },
+  {
+    name: "patch",
+    async open(t) {
+      await ready(t);
+      await seed(t);
+      await t.type("/patch\r", "patch view opened");
+      await t.until(() => t.vt.text().includes("patch bass"), "patch view");
+    },
+    // The header names the track; at any usable size it is the first row.
+    marker: (text) => text.includes("patch bass"),
     focus: focusShown,
   },
   {

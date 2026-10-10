@@ -71,7 +71,9 @@ describe("knob table", () => {
   test("every row is four slots, and orange is the level on every sound page", () => {
     for (const [page, row] of Object.entries(KNOB_MAPS)) {
       expect(row.length, page).toBe(4);
-      if (page.startsWith("sound:")) expect(row[3], page).toBe("mix/volume");
+      // A patch's four knobs are its first four macros (patcher §7.2).
+      if (page.startsWith("sound:") && page !== "sound:patch")
+        expect(row[3], page).toBe("mix/volume");
     }
   });
 

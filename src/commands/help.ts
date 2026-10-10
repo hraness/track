@@ -163,6 +163,11 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
           "seeded feel at render · humanize 10 8 5 · humanize 20 bars 2-3",
       },
       { command: "expression", summary: "this track's performance settings" },
+      {
+        command: "/patch [--fx <name>] [off]",
+        summary:
+          "the patch view: nodes, ports, cables · a add · w wire · m knob",
+      },
     ],
   },
   {
@@ -1094,7 +1099,7 @@ export const USAGE: Readonly<Record<string, string>> = {
   reverse: "reverse [<track>|all] [<a>-<b>|<section>] · reverse bass 5-6",
   jump: "jump <bar>[.<beat>] | <section> · jump 5 · jump 5.3 · jump chorus",
   loop: "loop <a>-<b> | <section> | next | prev | off · loop 5-6 · loop chorus · loop off",
-  pane: "pane home|play|tape|sound|menu [<track>] [pin|follow [<letter>]] · pane tape · pane sound bass pin",
+  pane: "pane home|play|tape|sound|menu|patch [<track>] [pin|follow [<letter>]] · pane tape · pane sound bass pin · pane patch bass",
   follow: "follow [<letter>] · follow b · unfollow stops",
   panes: "panes · who has this session open, on what · pane tape",
   knobs:

@@ -386,6 +386,29 @@ export const KEYS = {
       ],
     },
   ],
+  patch: [
+    {
+      title: "patch · nodes, ports, cables (each key echoes its command)",
+      rows: [
+        ["↑ ↓", "move in the focused pane"],
+        ["tab ⇧tab", "next pane: nodes · ports · cables · knobs"],
+        ["← → ⇧", "nodes ⇄ ports · across cables · turn a knob (⇧ coarse)"],
+        ["enter", "node: its settings · cell: patch wire / unwire"],
+        ["[ ] { }", "cable amount −/+ 5 % (⇧ 25 %) · patch wire a b 0.6"],
+        ["1-9 0", "cable amount 10-90 % · 100 %"],
+        ["a", "add a node · patch add lfo"],
+        ["w", "wire to a legal input · patch wire env.out vcf.cutoff"],
+        ["x", "remove the cable or node · patch unwire · patch rm"],
+        ["m", "map the param to a knob · patch macro"],
+        ["g", "run the node per voice or once · patch rate lfo global"],
+        ["f", "the whole cable matrix / the node's neighbourhood"],
+        ["s", "save to the library · patch save acid-bass"],
+        ["space", "play / pause"],
+        ["/", "type a command, staying here"],
+        ["esc", "back home · patch off"],
+      ],
+    },
+  ],
   chords: [
     {
       title: "chord mode · number row latches",

@@ -13,8 +13,10 @@
  * Data, not code, so the patcher can map a patch's macros onto the same
  * four knobs by adding rows (`patch:<id>`), and a test checks every path
  * resolves for every instrument family. A `*` at the end of a segment
- * matches the first submenu whose id starts with it (`sample:*`).
+ * matches the first submenu whose id starts with it (`sample:*`); `#n` is
+ * the nth row of its level (a patch's macros have no fixed labels).
  */
+import { PATCH_INSTRUMENT } from "../../core/patch.ts";
 import { isWavetableInstrument, type Track } from "../../core/score.ts";
 import { isDrumInstrument } from "../../core/drums.ts";
 import {
@@ -144,6 +146,18 @@ export const KNOB_MAPS: Readonly<Record<string, KnobMap>> = Object.freeze({
    * segment under the playhead, orange the focused track's volume.
    */
   tape: ["playhead", "loop", "tempo", "volume"],
+  /**
+   * A patch track (patcher design §4): the patch's first four macros, in
+   * order (`#n` is the nth row of Sound › patch › knobs). A patch with
+   * fewer macros leaves the rest `·`. The patch view's header reads the
+   * same row.
+   */
+  "sound:patch": [
+    "sound/patch/knobs/#1",
+    "sound/patch/knobs/#2",
+    "sound/patch/knobs/#3",
+    "sound/patch/knobs/#4",
+  ],
   "fx:distort": [
     undefined,
     "effects/distort/drive",
@@ -154,6 +168,7 @@ export const KNOB_MAPS: Readonly<Record<string, KnobMap>> = Object.freeze({
 
 /** The sound page's family for a track: which engine its Sound menu shows. */
 export function soundFamily(track: Track): string {
+  if (track.instrument === PATCH_INSTRUMENT && track.patch) return "patch";
   if (isDrumInstrument(track.instrument)) return "kit";
   if (track.sampler) return "sampler";
   if (isGranularInstrument(track.instrument)) return "granular";

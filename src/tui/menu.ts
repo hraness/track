@@ -8,7 +8,11 @@
  *
  * Rendering reuses the TUI's picker overlay: `view()` returns a picker.
  */
-import { effectPatchMenuNode, patchMenuNode } from "./patch-menu.ts";
+import {
+  effectPatchMenuNode,
+  effectPatchMenuNodes,
+  patchMenuNode,
+} from "./patch-menu.ts";
 import { TOPIC_ALIASES } from "../lang/glossary.ts";
 import {
   voiceEffectRows,
@@ -2489,6 +2493,7 @@ function effectNodes(context: MenuContext): MenuNode[] {
     },
   };
   return [
+    ...effectPatchMenuNodes(context, track),
     ...CORE_EFFECTS.map(node),
     rig,
     shoegaze,

@@ -42,7 +42,7 @@ export interface EditorState {
   busy: boolean;
   rev: number;
   track: string;
-  screen: "home" | "tape" | "play" | "sound" | "menu";
+  screen: "home" | "tape" | "play" | "sound" | "menu" | "patch";
   overlay: string | null;
 }
 
