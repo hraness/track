@@ -70,6 +70,7 @@ test("perf gate: the patch runner plays a voice-sample within 24 calibration uni
   // about 7). A per-sample allocation or closure trips it.
   const unit = calibrate();
   const ns = Math.min(...patchRunner(3));
+  console.log(`patch runner: ${(ns / unit).toFixed(2)} units`);
   expect(ns / unit).toBeLessThan(24);
 }, 60_000);
 
@@ -79,5 +80,6 @@ test("perf gate: the fused voice block runs within 0.8x of the reference interpr
   // kernels.ts) puts it near 1.
   const fused = Math.min(...patchRunner(3));
   const interp = Math.min(...patchRunner(3, false));
+  console.log(`patch runner: fused/interpreter ${(fused / interp).toFixed(3)}`);
   expect(fused / interp).toBeLessThan(0.8);
 }, 60_000);
