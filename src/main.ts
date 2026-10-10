@@ -942,6 +942,13 @@ let requestFrame: () => void = () => undefined;
 let runPromptLater: (command: string) => void = () => undefined;
 /** Queue several prompts, in order, ahead of anything already queued. */
 let runPromptsLater: (commands: readonly string[]) => void = () => undefined;
+/** True while a queued prompt is running or waiting (set by the loop). */
+let promptQueueBusy: () => boolean = () => false;
+/**
+ * Queue a step that decides its prompts when its turn comes, after what is
+ * already queued has run (set by the interactive loop).
+ */
+let runStepLater: (step: () => readonly string[]) => void = () => undefined;
 /** The fader drawer's focus and typing, while one is open over the menu. */
 let fader: FaderState | undefined;
 /** Show-me state (see the show-me section below). */
@@ -1588,6 +1595,13 @@ async function runInteractive(): Promise<void> {
       ) {
         tui.activity.setQueueDepth(queuedPrompts.length);
         await historyStep;
+        if (typeof nextPrompt === "function") {
+          // A deferred step (a TAPE key typed ahead): its prompts run next,
+          // reduced from what the lines before it left.
+          queuedPrompts.runFirst(...nextPrompt());
+          tick(true);
+          continue;
+        }
         await runPrompt(nextPrompt);
         if (pendingAudition && queuedPrompts.length === 0) {
           const voice = pendingAudition;
@@ -1685,6 +1699,11 @@ async function runInteractive(): Promise<void> {
   };
   runPromptsLater = (commands) => {
     queuedPrompts.runNow(...commands);
+    void drainQueue();
+  };
+  promptQueueBusy = () => processingQueue || queuedPrompts.length > 0;
+  runStepLater = (step) => {
+    queuedPrompts.runNow(step);
     void drainQueue();
   };
   reportAgentActivity = () => {
@@ -5928,6 +5947,42 @@ function tapeInput(value: string): boolean {
   if (tui.ui.overlay !== undefined || menu.open) return false;
   if (prompt.value.length > 0) return false;
   if (value === "/" || value === "\u0003") return false;
+  // A key that types commands reduces from the score and playhead, which
+  // queued commands have not changed yet: `[ [` pressed before the first
+  // `loop` lands would both shrink the same loop. Such a key waits its turn
+  // in the queue and reduces from what the lines before it left.
+  if (promptQueueBusy() && tapeKeyTypes(value)) {
+    runStepLater(() => {
+      if (!tape.on || play?.on) return [];
+      let typed: readonly string[] = [];
+      applyTapeKey(value, (commands) => {
+        echoGesture(commands);
+        typed = commands;
+      });
+      return typed;
+    });
+    return true;
+  }
+  return applyTapeKey(value, runTyped);
+}
+
+/** Whether a TAPE key would type commands now (a dry run, no effects). */
+function tapeKeyTypes(value: string): boolean {
+  const base = tapeContext();
+  const context = { ...base, stale: !base.cut && clipboardStale() };
+  const action = tapeKey(context, value);
+  if (action.type === "run" || action.type === "paste") return true;
+  if (action.type === "focus") return true;
+  if (action.type !== "pass") return false;
+  const knob = knobKey({ ...tape.knobs }, tapeKnobs(context), value);
+  return knob.type === "run" || knob.type === "open";
+}
+
+/** One TAPE key, its commands handed to `run`. */
+function applyTapeKey(
+  value: string,
+  run: (commands: readonly string[]) => void,
+): boolean {
   const base = tapeContext();
   // After a cut the source bars are empty on purpose: not stale.
   const context = { ...base, stale: !base.cut && clipboardStale() };
@@ -5935,7 +5990,7 @@ function tapeInput(value: string): boolean {
   switch (action.type) {
     case "run":
       if (action.cut) tape.cutArmed = score;
-      runTyped(action.commands);
+      run(action.commands);
       return true;
     case "paste": {
       if (action.fold) tape.foldArmed = true;
@@ -5948,7 +6003,7 @@ function tapeInput(value: string): boolean {
           until: Date.now() + 2000,
         };
       }
-      runTyped(commands);
+      run(commands);
       return true;
     }
     case "note":
@@ -5962,7 +6017,7 @@ function tapeInput(value: string): boolean {
     }
     case "focus": {
       const command = focusCommand(score, action.row);
-      if (command) runTyped([command]);
+      if (command) run([command]);
       return true;
     }
     case "transport":
@@ -5979,11 +6034,11 @@ function tapeInput(value: string): boolean {
   }
   const knob = knobKey(tape.knobs, tapeKnobs(context), value);
   if (knob.type === "run") {
-    runTyped([knob.command]);
+    run([knob.command]);
     return true;
   }
   if (knob.type === "open") {
-    runTyped([knobNoun(context, knob.knob)]);
+    run([knobNoun(context, knob.knob)]);
     return true;
   }
   if (knob.type === "handled") return true;

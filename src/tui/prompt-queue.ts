@@ -10,13 +10,24 @@
  * One lane used to take `now` lines at its front (`unshift`), so lines typed
  * faster than they ran came out newest first.
  */
+/**
+ * A queued line, or a step that decides its lines when its turn comes (a
+ * TAPE key typed ahead reduces from what the lines before it left).
+ */
+export type QueuedPrompt = string | (() => readonly string[]);
+
 export class PromptQueue {
-  private readonly now: string[] = [];
-  private readonly next: string[] = [];
+  private readonly now: QueuedPrompt[] = [];
+  private readonly next: QueuedPrompt[] = [];
 
   /** Run ahead of queued follow-ups, after earlier `now` lines. */
-  runNow(...prompts: readonly string[]): void {
+  runNow(...prompts: readonly QueuedPrompt[]): void {
     this.now.push(...prompts);
+  }
+
+  /** Run before anything else waiting: a dequeued step's own lines. */
+  runFirst(...prompts: readonly string[]): void {
+    this.now.unshift(...prompts);
   }
 
   /** Run after everything already waiting. */
@@ -25,7 +36,7 @@ export class PromptQueue {
   }
 
   /** The next prompt to run, `now` lines first. */
-  shift(): string | undefined {
+  shift(): QueuedPrompt | undefined {
     return this.now.shift() ?? this.next.shift();
   }
 
