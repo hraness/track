@@ -881,7 +881,7 @@ let monitorEngine: AudioEngine | undefined;
 /** The audition loop and staged edits (src/tui/audition.ts), made lazily. */
 let auditionLoop: Audition | undefined;
 /** Pickers that host the audition loop (Space, `a`, `c`, hover). */
-const AUDITION_PICKERS = new Set(["kit", "pattern", "try"]);
+const AUDITION_PICKERS = new Set(["kit", "pattern", "try", "patch-add"]);
 const TRY_USAGE =
   "/try <sound command> · /try fx reverb mix 0.6 · /try agent on|off";
 /** Whether the agent's preview_sound plays its snippet in this window. */
@@ -5875,7 +5875,10 @@ function patchInput(value: string): boolean {
       tui.openPicker({
         id: action.id,
         title: action.title,
-        hint: HINTS.list,
+        // The add list hears each node on the loop (enter keeps, esc
+        // reverts), as /try and the kit list do.
+        hint: action.id === "patch-add" ? HINTS.audition : HINTS.list,
+        audition: action.id === "patch-add",
         items: action.items.map((item) => ({
           label: item.label,
           value: item.value,
@@ -5889,8 +5892,8 @@ function patchInput(value: string): boolean {
     case "note":
       tui.activity.pushCard(action.message, { tone: "info" });
       return true;
-    case "transport":
-      void toggleTransport().catch((error: unknown) => transportFailed(error));
+    case "audition":
+      void auditionKeyPressed("loop");
       return true;
     case "keys":
       showKeys();

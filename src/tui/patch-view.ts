@@ -9,7 +9,7 @@
  *               port: jump to the node on its other end
  *   [ ] { }     cell amount −/+ 5 % (⇧ 25 %) · 1-9 0: 10-90 %, 100 %
  *   a w x m g   add node · wire to… · remove · map to a knob · voice/global
- *   f s space   full matrix · save · play       esc   back home
+ *   f s space   full matrix · save · audition   esc   back home
  *
  * Pure: `patchModel` reads the score, `patchKey` turns a key into what to
  * run, and every edit is a typed `patch …` command (`--fx <name>` on an
@@ -554,7 +554,8 @@ export type PatchAction =
   | Readonly<{ type: "prefill"; text: string }>
   | Readonly<{ type: "note"; message: string }>
   | Readonly<{ type: "handled" }>
-  | Readonly<{ type: "transport" }>
+  /** Space: the audition loop (the track solo; the add list hears each row). */
+  | Readonly<{ type: "audition" }>
   | Readonly<{ type: "keys" }>
   | Readonly<{ type: "exit" }>
   /** Not a patch-view key: the prompt, ctrl keys. */
@@ -674,7 +675,7 @@ export function patchKey(
     case "\u001b":
       return { type: "exit" };
     case " ":
-      return { type: "transport" };
+      return { type: "audition" };
     case "?":
       return { type: "keys" };
     case "\t":

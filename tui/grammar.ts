@@ -403,7 +403,7 @@ export const KEYS = {
         ["g", "run the node per voice or once · patch rate lfo global"],
         ["f", "the whole cable matrix / the node's neighbourhood"],
         ["s", "save to the library · patch save acid-bass"],
-        ["space", "play / pause"],
+        ["space", "audition loop (the track solo)"],
         ["/", "type a command, staying here"],
         ["esc", "back home · patch off"],
       ],

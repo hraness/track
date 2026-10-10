@@ -9,6 +9,7 @@ import { createScore, type TrackScore } from "../../core/score.ts";
 import { CellBuffer } from "../../tui/screen.ts";
 import { PATCH_NODES_MAX, paintPatch } from "../../tui/patch.ts";
 import { getTheme } from "../../tui/theme.ts";
+import { isStageable } from "./audition.ts";
 import {
   focusCable,
   legalCable,
@@ -407,5 +408,18 @@ describe("show-me (§7.5)", () => {
     expect(focusCable(state, m, { from: "nope.out", to: "out.in" })).toBe(
       false,
     );
+  });
+});
+
+describe("audition (§7 a, space)", () => {
+  test("space is the audition loop, and every add-list row stages", () => {
+    const m = model(acid());
+    expect(keys(m, patchViewState(), " ")).toEqual({ type: "audition" });
+    const pick = keys(m, patchViewState(), "a");
+    if (pick.type !== "pick") throw new Error(pick.type);
+    expect(pick.id).toBe("patch-add");
+    for (const item of pick.items) expect(isStageable(item.value)).toBe(true);
+    expect(isStageable("patch save mine")).toBe(false);
+    expect(isStageable("patch list")).toBe(false);
   });
 });
