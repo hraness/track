@@ -182,27 +182,6 @@ function inputCode(
   };
 }
 
-/** Names a hoisted constant may use (besides literals and other constants). */
-const PURE = [
-  "Math.PI",
-  "Math.pow",
-  "Math.sin",
-  "Math.cos",
-  "Math.tan",
-  "Math.abs",
-  "Math.min",
-  "Math.max",
-  "Math.floor",
-  "Math.exp",
-  "Math.log",
-  "Math.sqrt",
-  "TAU",
-  "warp",
-  "flush",
-  "NaN",
-  "Infinity",
-];
-
 /**
  * The value each constant control (a block input with no cables and a
  * literal base, never re-evaluated) holds after the first block: the
@@ -464,9 +443,10 @@ export function fuseVoice(
     return rest ? `F${d}[o${d} + ${x - d}${rest}]` : `F${d}[o${d} + ${x - d}]`;
   });
   // With the sample rate fixed, a constant control's cell holds a value
-  // known now: reads become literals, and a block constant computed only
-  // from literals moves out of the block function (computed once).
-  function hoist(): string {
+  // known now, so its reads become literals. (Hoisting the block constants
+  // these feed out of the block function as closure constants made it
+  // about 8x slower on x64 JavaScriptCore, so they stay in place.)
+  function fold(): void {
     const known = stillValues(section, consts);
     body = body.split("f.sampleRate").join(lit(sampleRate!));
     body = body.replace(
@@ -476,29 +456,10 @@ export function fuseVoice(
         return value === undefined ? ref : lit(value);
       },
     );
-    const pure = new Set(PURE);
-    let out = "";
-    body = body
-      .split("\n")
-      .filter((line) => {
-        const decl = /^const (n\d+_\w+) = (.+);$/.exec(line);
-        if (!decl) return true;
-        const rest = decl[2]!
-          .replace(/\b\d+(\.\d+)?(e[+-]?\d+)?\b/gi, "")
-          .replace(/[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*/g, (id) =>
-            pure.has(id) ? "" : "@",
-          );
-        if (/[@[\]{};"'`]/.test(rest)) return true;
-        pure.add(decl[1]!);
-        out += line + "\n";
-        return false;
-      })
-      .join("\n");
-    return out;
   }
   const names = Object.keys(deps);
-  const hoisted = sampleRate === undefined ? "" : hoist();
-  const code = `"use strict";\n${KERNEL_HELPERS}\n${hoisted}return function fused(f, ctx, voice, sr, gm, stride, fanAt, sumAt) {\nconst m = f.m;\nconst out = m;\n${fans}const st = f.st;\nconst ctl = f.ctl;\nconst prev = f.prev;\nconst k = ctx.consts;\n${body}};`;
+  if (sampleRate !== undefined) fold();
+  const code = `"use strict";\n${KERNEL_HELPERS}\nreturn function fused(f, ctx, voice, sr, gm, stride, fanAt, sumAt) {\nconst m = f.m;\nconst out = m;\n${fans}const st = f.st;\nconst ctl = f.ctl;\nconst prev = f.prev;\nconst k = ctx.consts;\n${body}};`;
   // eslint-disable-next-line @typescript-eslint/no-implied-eval
   const make = new Function("mapMacro", ...names, code) as (
     ...a: unknown[]
