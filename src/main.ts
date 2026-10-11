@@ -3853,12 +3853,11 @@ async function chopCommand(
       trackSlug: slug,
       tempo: { bpm: score.tempoBpm, beatsPerBar: score.beatsPerBar },
       actor: { kind: "human" },
-      atRev: record.revision,
       ascii: !tui.capabilities.unicode,
       audition: async (path, from, to) => {
         await playFileForAgent(path, from, to);
       },
-      // History seam: lane hist wires mediaServices().chopHistory.
+      // Default: historySink(), set when the session opens (lane hist).
       ...(mediaServices().chopHistory
         ? { history: mediaServices().chopHistory! }
         : {}),

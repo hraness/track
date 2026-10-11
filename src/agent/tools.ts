@@ -100,6 +100,7 @@ import { MEDIA_TOOLS } from "../media/tools.ts";
 import { DISPATCH_TOOLS } from "./dispatch-tool.ts";
 import type { SubagentTask } from "./subagent-tasks.ts";
 import { AUDIO_TOOL } from "./audio-tool.ts";
+import { EXEC_TOOL } from "./exec-tool.ts";
 import { ChopError } from "../audio/chop/pcm.ts";
 import { PACK_TOOLS, PackToolError } from "./pack-tools.ts";
 import {
@@ -2069,6 +2070,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   ...GRANULAR_TOOLS,
   ...RESAMPLE_TOOLS,
   AUDIO_TOOL,
+  EXEC_TOOL,
   // 0.7 Voice: one array per lane in voice-tools.ts.
   ...VOICE_TOOLS,
   ...DISPATCH_TOOLS,

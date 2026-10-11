@@ -32,6 +32,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { CommandRunner } from "../auth/runner.ts";
 import type { ChopActor, ChopHistory } from "../audio/chop/types.ts";
 import { defaultWriteScope } from "../audio/chop/run.ts";
+import { historySink } from "../history/sink.ts";
 import { INSTALL_COMMANDS, uvInstalledTools } from "./backend.ts";
 import {
   EXEC_POLICY,
@@ -109,9 +110,8 @@ export type ExecContext = Readonly<{
   progress?: (line: string) => void;
   /** PATH for the child (default process.env.PATH). */
   path?: string;
+  /** Default `historySink()`. */
   history?: ChopHistory;
-  sessionId?: string;
-  atRev?: number;
   actor?: ChopActor;
 }>;
 
@@ -751,10 +751,9 @@ export async function runExec(request: ExecRequest, ctx: ExecContext): Promise<E
 }
 
 function recordHistory(result: ExecResult, ctx: ExecContext): void {
-  const history = ctx.history;
+  const history = ctx.history ?? historySink();
   if (!history) return;
-  const actor = ctx.actor ?? { kind: "agent" as const };
-  const base = { sessionId: ctx.sessionId ?? "", atRev: ctx.atRev ?? 0, actor };
+  const base = { actor: ctx.actor ?? { kind: "agent" as const } };
   try {
     history.append({
       ...base,

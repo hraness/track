@@ -218,7 +218,14 @@ describe("exec runs", () => {
     const rows: Array<{ kind: string; summary: string }> = [];
     await runExec(
       { argv: ["ffmpeg", "-i", "in.wav", "tracks/lead/samples/h.wav"] },
-      ctx({ history: { append: (row) => rows.push(row) }, sessionId: "s1", atRev: 4 }),
+      ctx({
+        history: {
+          append: (row) => {
+            rows.push(row);
+            return { id: "ev_test", done: Promise.resolve(undefined) };
+          },
+        },
+      }),
     );
     expect(rows.map((row) => row.kind)).toEqual(["tool", "asset"]);
   });

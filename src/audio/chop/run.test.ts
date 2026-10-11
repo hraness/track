@@ -171,6 +171,7 @@ describe("runChop", () => {
     const history: ChopHistory = {
       append: (row) => {
         rows.push(row);
+        return { id: "ev_test", done: Promise.resolve(undefined) };
       },
     };
     await runChop(

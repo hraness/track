@@ -5,6 +5,7 @@
  * is wired) → one-line summary. The single implementation behind the agent
  * `audio` tool, typed `/chop` and `dawg media chop`.
  */
+import { historySink } from "../../history/sink.ts";
 import { copyFile, lstat, mkdir, realpath } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { projectPath, resolveInput, sha256File, writeJsonAtomic } from "../../media/paths.ts";
@@ -552,21 +553,20 @@ export async function runChop(op: ChopOp, args: ChopArgs, ctx: ChopContext): Pro
     }
   }
 
-  if (ctx.history && outputs.length > 0) {
+  const history = ctx.history ?? historySink();
+  if (history && outputs.length > 0) {
     for (const output of outputs) {
       try {
-        ctx.history.append({
-          sessionId: ctx.sessionId ?? "",
+        history.append({
           kind: "asset",
           sub: `audio.${op}`,
-          atRev: ctx.atRev ?? 0,
           actor: ctx.actor ?? { kind: "system" },
           summary: `${op} → ${output.path}`.slice(0, 160),
           payload: { op, path: output.path, sha256: output.sha256, args: digestArgs(args), inputs: [...loaded.values()].map((l) => ({ path: l.file.relative, sha256: l.sha256 })) },
           targets: [
             { type: "sample", key: output.sha256 },
             { type: "file", key: output.path },
-            ...(args.track ? [{ type: "track" as const, key: args.track }] : []),
+            ...(args.track ? [{ type: "track" as const, key: args.track, trackId: args.track }] : []),
           ],
         });
       } catch {

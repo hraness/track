@@ -47,8 +47,8 @@ export type MediaServices = Readonly<{
   /** Overrides `$HOME` for model caches (`~/.cache/dawg`). */
   homeDir?: string;
   /**
-   * History seam for the audio toolkit: asset rows for every file `audio`
-   * writes. Unset until the session history (lane hist) is wired.
+   * History handle for the audio toolkit's asset rows (`audio`, `exec`).
+   * Unset means the process-global `historySink()`.
    */
   chopHistory?: ChopHistory;
 }>;

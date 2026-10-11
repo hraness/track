@@ -3,6 +3,7 @@
  * agent `audio` tool, typed `/chop …` and `dawg media chop …`. Every door
  * calls `runChop(op, args, ctx)` (`run.ts`), so behaviour is identical.
  */
+import type { HistoryActor, HistoryHandle } from "../../history/types.ts";
 import type { CommandRunner } from "../../auth/runner.ts";
 import type { Tempo, TimeSpec } from "./time.ts";
 
@@ -155,29 +156,14 @@ export type ChopResult = Readonly<{
 }>;
 
 /**
- * History seam (lane hist): the subset of `HistoryHandle.append` the toolkit
- * needs. When `src/history` is wired, doors pass the session's handle; until
- * then the agent's tool events and the typed command's status line are the
- * record, and `history` stays undefined.
+ * History (lane hist, `src/history/types.ts`): the subset of
+ * `HistoryHandle` the toolkit needs. Doors pass a handle when they hold
+ * one; otherwise `historySink()` (set when a session opens) is used, and
+ * with neither nothing is recorded.
  */
-export type ChopHistory = Readonly<{
-  append(row: {
-    sessionId: string;
-    kind: "asset" | "tool";
-    sub?: string;
-    atRev: number;
-    actor: ChopActor;
-    summary: string;
-    payload?: unknown;
-    targets?: readonly Readonly<{ type: "sample" | "file" | "track"; key: string }>[];
-  }): unknown;
-}>;
+export type ChopHistory = Pick<HistoryHandle, "append">;
 
-export type ChopActor = Readonly<{
-  kind: "human" | "agent" | "subagent" | "system" | "dev";
-  actorId?: string;
-  pane?: string;
-}>;
+export type ChopActor = HistoryActor;
 
 export type ChopContext = Readonly<{
   /** Absolute project root. */
@@ -192,8 +178,6 @@ export type ChopContext = Readonly<{
   trackSlug?: string;
   tempo?: Tempo;
   history?: ChopHistory;
-  sessionId?: string;
-  atRev?: number;
   actor?: ChopActor;
   /** Plays a file (or a range) through the preview player; absent = no audio. */
   audition?: (path: string, from?: number, to?: number) => Promise<void>;

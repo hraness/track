@@ -63,10 +63,8 @@ function chopContext(
     signal: base.signal,
     tempo: { bpm: tool.score.tempoBpm, beatsPerBar: tool.score.beatsPerBar },
     actor: { kind: "agent" },
-    atRev: tool.revision,
     ...(base.progress ? { progress: base.progress } : {}),
-    // History seam: the host sets `media.chopHistory` once lane hist wires
-    // its HistoryHandle; until then no asset rows are written.
+    // An explicit handle wins; otherwise runChop uses historySink().
     ...(base.chopHistory ? { history: base.chopHistory } : {}),
   };
 }
