@@ -10,6 +10,7 @@
  *   dawg media wavetable <file> <name> [--frames 64] [--start s] [--end s] [--method auto|slice|spectral] [--smooth 0..1]
                                          2048-sample frames → tracks/<slug>/wavetables/<name>.wav
   dawg media lyrics <file> [--lang en]
+ *   dawg media chop <op> <file> [values] [--flags]   (see CHOP_USAGE)
  *
  * Progress goes to stderr, the JSON result to stdout. Ctrl-C sends SIGTERM to
  * the helper (SIGKILL after 15 s) and exits 130.
@@ -22,6 +23,7 @@ import { MediaAbortError } from "./process.ts";
 import { findMediaTool } from "./registry.ts";
 import type { MediaHost, MediaResult } from "./types.ts";
 import { errorMessage } from "./vendor/util.ts";
+import { runChopCli } from "../audio/chop/cli.ts";
 
 export type Output = { write(text: string): unknown };
 
@@ -38,6 +40,7 @@ export const MEDIA_HELP = `dawg media — local media tools (see DAWG.md "Media 
   dawg media wavetable <file> <name> [--frames 64] [--start s] [--end s] [--method auto|slice|spectral] [--smooth 0..1]
                                          2048-sample frames → tracks/<slug>/wavetables/<name>.wav
   dawg media lyrics <file> [--lang en]   whisper transcript → <file>.lyrics.json/.txt
+  dawg media chop <op> <file> …          inspect and chop audio (dawg media chop --help)
 
 Options: --track <name> picks the track folder (default main); --json prints only the result.
 Env: DAWG_STEMDECK_URL (default http://127.0.0.1:8000).`;
@@ -126,6 +129,8 @@ export async function runMediaCommand(
     signal?: AbortSignal;
   } = {},
 ): Promise<number> {
+  if (argv[1] === "chop")
+    return runChopCli(argv.slice(2), cwd, stdout, stderr, options);
   let parsed: ReturnType<typeof parseMediaArgv>;
   try {
     parsed = parseMediaArgv(argv.slice(1));

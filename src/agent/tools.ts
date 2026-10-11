@@ -99,6 +99,8 @@ import type { ChatTool } from "./gateway.ts";
 import { MEDIA_TOOLS } from "../media/tools.ts";
 import { DISPATCH_TOOLS } from "./dispatch-tool.ts";
 import type { SubagentTask } from "./subagent-tasks.ts";
+import { AUDIO_TOOL } from "./audio-tool.ts";
+import { ChopError } from "../audio/chop/pcm.ts";
 import { PACK_TOOLS, PackToolError } from "./pack-tools.ts";
 import {
   PreviewToolError,
@@ -121,7 +123,11 @@ import { RANGE_TOOLS } from "./range-tools.ts";
 import { GRANULAR_TOOLS } from "./granular-tools.ts";
 import { RESAMPLE_TOOLS } from "./resample-tool.ts";
 import { VOICE_TOOLS } from "./voice-tools.ts";
-import type { MediaResult, MediaRunContext } from "../media/types.ts";
+import type {
+  MediaResult,
+  MediaRunContext,
+  MediaServices,
+} from "../media/types.ts";
 import { instrumentPatch, pitchToMidi } from "./ops.ts";
 import { TUNING_LIMITS } from "../../core/tuning.ts";
 import {
@@ -257,6 +263,8 @@ export type ActionContext = Readonly<{
   packs?: PackStore;
   /** Render and play hooks for preview_sound; absent renders in-thread, silent. */
   preview?: PreviewHost;
+  /** Local command runner and history seam for `audio` (slice to sampler). */
+  media?: MediaServices;
 }>;
 
 export type ActionResult = Readonly<{
@@ -2060,6 +2068,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   ...STYLE_TOOLS,
   ...GRANULAR_TOOLS,
   ...RESAMPLE_TOOLS,
+  AUDIO_TOOL,
   // 0.7 Voice: one array per lane in voice-tools.ts.
   ...VOICE_TOOLS,
   ...DISPATCH_TOOLS,
@@ -2075,7 +2084,8 @@ export function isActionDiagnostic(error: unknown): boolean {
     error instanceof ToolArgumentError ||
     error instanceof PackToolError ||
     error instanceof PreviewToolError ||
-    error instanceof PackError
+    error instanceof PackError ||
+    error instanceof ChopError
   );
 }
 

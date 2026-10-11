@@ -61,6 +61,12 @@ export type PreviewHost = Readonly<{
   render?: (score: TrackScore) => Promise<RenderedAudio> | RenderedAudio;
   /** Play the snippet once; returns false when nothing could sound. */
   play?: (audio: RenderedAudio) => boolean | Promise<boolean>;
+  /** Play a project file (seconds range) for `audio` audition; false when silent. */
+  playFile?: (
+    path: string,
+    from?: number,
+    to?: number,
+  ) => boolean | Promise<boolean>;
   /**
    * Render and measure for measure_mix (the host adds decoded samples), at
    * `sampleRate` when given and the score's export rate otherwise.

@@ -8,6 +8,8 @@
  *
  * Rendering reuses the TUI's picker overlay: `view()` returns a picker.
  */
+import { CHOP_OPS } from "../audio/chop/types.ts";
+import { CHOP_USAGE } from "../audio/chop/words.ts";
 import {
   effectPatchMenuNode,
   effectPatchMenuNodes,
@@ -3166,6 +3168,14 @@ function transportNodes(context: MenuContext): MenuNode[] {
     },
     {
       kind: "menu",
+      id: "media",
+      label: "media",
+      detail: "chop audio files",
+      help: "inspect, cut, slice, stretch and pitch audio files into new samples",
+      build: mediaNodes,
+    },
+    {
+      kind: "menu",
       id: "export",
       label: "export",
       detail: "project file · MIDI · WAV",
@@ -3209,6 +3219,43 @@ function transportNodes(context: MenuContext): MenuNode[] {
       build: helpNodes,
     },
   ];
+}
+
+/** Project › media: the chop toolkit (typed `/chop`, agent `audio`). */
+function mediaNodes(): MenuNode[] {
+  return [
+    {
+      kind: "menu",
+      id: "chop",
+      label: "chop",
+      detail: "info · onsets · cut · slice · pitch · …",
+      help: "one row per op; type the file (and values) and Enter runs /chop",
+      build: () => chopMenuNodes(),
+    },
+    {
+      kind: "action",
+      label: "chop help",
+      command: "/chop",
+      help: "every op on one line, with times and output rules",
+    },
+  ];
+}
+
+/** Project › media › chop › <op>: an entry per op that runs `/chop <op> …`. */
+export function chopMenuNodes(): MenuNode[] {
+  return CHOP_OPS.map((op): MenuNode => {
+    const usage = CHOP_USAGE[op];
+    const shape = usage.slice(op.length).trim().split(/\s{2,}/);
+    return {
+      kind: "entry",
+      label: op,
+      value: "",
+      placeholder: shape[0] ?? "<file>",
+      example: `/chop ${op} ${shape[0] ?? "<file>"}`,
+      help: shape[1] ?? usage,
+      command: (text) => (text.trim() ? `/chop ${op} ${text.trim()}` : undefined),
+    };
+  });
 }
 
 /** Project › audio: two rows, each opening a device list. */

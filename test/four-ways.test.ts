@@ -39,6 +39,13 @@ type Feature = Readonly<{
 
 export const FEATURES: readonly Feature[] = [
   {
+    feature: "audio chop",
+    command: "/chop cut a.wav 1s 2s",
+    menu: "Project › media › chop",
+    tools: ["audio"],
+    sdk: ["cli:dawg media chop"],
+  },
+  {
     feature: "notes",
     command: "add C4 at 0",
     menu: "verb:add",

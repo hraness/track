@@ -203,6 +203,11 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
           "resample <track>|orbit <n>|master [section <name>|bars a-b] [grain]",
         summary: "render to a pinned WAV on a new sampler (or granular) track",
       },
+      {
+        command: "chop <op> <file> [values] · chop slice <file> --track <id>",
+        summary:
+          "inspect and chop audio files into new samples (cut, slice, pitch, stretch, fade…)",
+      },
     ],
   },
   {
@@ -1168,6 +1173,7 @@ export const USAGE: Readonly<Record<string, string>> = {
   resample:
     "resample <track>|orbit <n>|master [section <name>|bars a-b] [post] [grain] [as <id>] · resample lead · resample drums bars 1-2 grain · resample master section chorus",
   bounce: "resample <track>|orbit <n>|master [section <name>|bars a-b] [grain]",
+  chop: "/chop <op> <file> [values] [--flags] · /chop cut break.wav 1.2s 3.4s · /chop pitch vox.wav -3 · /chop slice break.wav --method onset --track chops --pattern · /chop audition out.wav",
   view: "/view focus | all",
   transcript: "/transcript",
   log: "/transcript",

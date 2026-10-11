@@ -26,6 +26,7 @@ import { parseModalCommand } from "./modal.ts";
 import { parseMusicCommand } from "./music.ts";
 import { parseKitCommand, parsePackCommand } from "./pack.ts";
 import { parseResampleCommand } from "./resample.ts";
+import { parseChopCommand } from "../audio/chop/command.ts";
 import { parseRhythmCommand } from "./rhythm.ts";
 import { parseRigCommand } from "./rig.ts";
 import { parseSampleCommand } from "./sample.ts";
@@ -114,6 +115,7 @@ function parsers(score: TrackScore): ((text: string) => unknown)[] {
     parseFitCommand,
     parseShiftCommand,
     parseResampleCommand,
+    parseChopCommand,
     parseWavetableCommand,
     parseTimeCommand,
     parseTuningCommand,

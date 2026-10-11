@@ -7,6 +7,7 @@
  * host supplies (project root, focused track slug, subprocess runner, fetch),
  * which is what lets tests script yt-dlp, ffprobe, demucs and StemDeck.
  */
+import type { ChopHistory } from "../audio/chop/types.ts";
 import type { CommandRunner } from "../auth/runner.ts";
 
 /** One transcribed note or drum hit, in source seconds. */
@@ -45,6 +46,11 @@ export type MediaServices = Readonly<{
   env?: Readonly<Record<string, string | undefined>>;
   /** Overrides `$HOME` for model caches (`~/.cache/dawg`). */
   homeDir?: string;
+  /**
+   * History seam for the audio toolkit: asset rows for every file `audio`
+   * writes. Unset until the session history (lane hist) is wired.
+   */
+  chopHistory?: ChopHistory;
 }>;
 
 /** What every media tool runs with. Paths are absolute. */
