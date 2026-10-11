@@ -34,8 +34,12 @@ import {
   MODEL_CATALOG,
   modelAlias,
   resolveModelChoice,
+  FAST_MODEL_ALIAS,
 } from "./models.ts";
 import { runTextAgentTurn } from "./xcb-agent.ts";
+import { AGENT_TOOLS } from "./tools.ts";
+import { SUBAGENT_LIMITS } from "./subagent-tasks.ts";
+import type { SubagentHost } from "./agent.ts";
 import {
   describeReason,
   readCapabilities,
@@ -334,10 +338,52 @@ export type ProviderTurnOptions = Readonly<{
   onEvent?: (event: AgentEvent) => void;
   signal?: AbortSignal;
   budget?: AgentBudget;
+  /** History id of this turn (pre-assigned by the caller); default fresh. */
+  turnId?: string;
+  /** Allow list of tool names (dispatch children); default every tool. */
+  toolNames?: readonly string[];
   /** Injected for tests; defaults to a client built from the selection's key. */
   gatewayClient?: GatewayClient;
   runner?: AuthEnv["runner"];
 }>;
+
+/**
+ * The dispatch runner for a parent turn on `selection`: children run on the
+ * same provider (API children default to the fast model; xcb children use
+ * the account's model) with a tool allow list and no command mode.
+ */
+export function subagentHostFor(
+  selection: ProviderSelection,
+  inject: Pick<ProviderTurnOptions, "gatewayClient" | "runner"> = {},
+): SubagentHost | undefined {
+  if (selection.kind !== "xcb" && !isApiSelection(selection)) return undefined;
+  const api = isApiSelection(selection) ? selection : undefined;
+  return {
+    concurrency:
+      selection.kind === "xcb"
+        ? SUBAGENT_LIMITS.xcbConcurrency
+        : SUBAGENT_LIMITS.concurrency,
+    ...(api ? { model: FAST_MODEL_ALIAS } : {}),
+    runTurn: (input) => {
+      const model =
+        api && input.model
+          ? (resolveModelChoice(api.kind, input.model) ?? api.modelId)
+          : undefined;
+      return runProviderTurn({
+        selection,
+        prompt: input.prompt,
+        host: input.host,
+        budget: input.budget,
+        signal: input.signal,
+        onEvent: input.onEvent,
+        toolNames: input.tools,
+        ...(input.turnId ? { turnId: input.turnId } : {}),
+        ...(model ? { model } : {}),
+        ...inject,
+      });
+    },
+  };
+}
 
 /** Run one agent turn on whichever provider was selected. */
 export async function runProviderTurn(
@@ -350,11 +396,19 @@ export async function runProviderTurn(
     ...(options.onEvent ? { onEvent: options.onEvent } : {}),
     ...(options.signal ? { signal: options.signal } : {}),
     ...(options.budget ? { budget: options.budget } : {}),
+    ...(options.turnId ? { turnId: options.turnId } : {}),
+    ...(options.toolNames
+      ? {
+          tools: AGENT_TOOLS.filter((tool) =>
+            options.toolNames!.includes(tool.name),
+          ),
+        }
+      : {}),
   };
   if (isApiSelection(selection)) {
     const model = options.model ?? selection.modelId;
     const fallback = fallbackModelId(selection.kind, model);
-    if (options.host.commands && !options.model)
+    if (options.host.commands && !options.model && !options.toolNames)
       return runCommandAgentTurn({
         ...common,
         model,
