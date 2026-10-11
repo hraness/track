@@ -1705,7 +1705,10 @@ async function runInteractive(): Promise<void> {
         ],
       })
     ) {
-      if (stateOsc) report();
+      // No report here: a new state forces a build, so a skip means the
+      // gate deferred that frame (too soon after the last). It stays dirty
+      // and the next tick draws it, then reports; reporting now would tell a
+      // waiting test the editor settled while the screen is a frame behind.
       return;
     }
     followCommitted();

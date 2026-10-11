@@ -57,11 +57,10 @@ test.skipIf(!supported)(
       // Arrows: default, Built-in Output, USB Audio Interface.
       await t.send("\u001b[B");
       await t.send("\u001b[B");
-      await t.send("\r");
-      await t.until(
-        () => t.vt.text().includes("audio out USB Audio Interface"),
-        "picked",
-      );
+      // The pick echoes `audio out USB Audio Interface` as its request line
+      // before the command runs: wait for the queue, not that text.
+      await t.type("\r", "picked");
+      expect(t.vt.text()).toContain("audio out USB Audio Interface");
       expect((await choice()).output).toBe("USB Audio Interface");
       const opened = async () =>
         (await readFile(log, "utf8").catch(() => "")).split("\n");
@@ -79,11 +78,8 @@ test.skipIf(!supported)(
         await Bun.sleep(150);
       }
       await t.until(() => !menuOpen(), "menu closed");
-      await t.send("audio in usb\r");
-      await t.until(
-        () => t.vt.text().includes("audio in USB Audio Interface"),
-        "input set",
-      );
+      await t.type("audio in usb\r", "input set");
+      expect(t.vt.text()).toContain("audio in USB Audio Interface");
       expect(await choice()).toEqual({
         version: 1,
         output: "USB Audio Interface",
