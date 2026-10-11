@@ -104,6 +104,7 @@ import { AUDIO_TOOL } from "./audio-tool.ts";
 import { EXEC_TOOL } from "./exec-tool.ts";
 import { ChopError } from "../audio/chop/pcm.ts";
 import { PACK_TOOLS, PackToolError } from "./pack-tools.ts";
+import { PRESET_TOOLS } from "./preset-tools.ts";
 import {
   PreviewToolError,
   previewSoundTool,
@@ -2223,6 +2224,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   ...PACK_TOOLS,
   ...MASTER_TOOLS,
   ...PATCH_TOOLS,
+  ...PRESET_TOOLS,
   ...STYLE_TOOLS,
   ...GRANULAR_TOOLS,
   ...RESAMPLE_TOOLS,

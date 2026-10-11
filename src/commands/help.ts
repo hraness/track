@@ -47,8 +47,9 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
     group: "sound",
     entries: [
       {
-        command: "instrument <name>",
-        summary: "sine piano pluck bass sawtooth square triangle wavetable kit",
+        command: "instrument <name> | preset <name> | /presets [category]",
+        summary:
+          "sine piano pluck bass … kit · preset warm-pad · preset find fm bell · preset next",
       },
       {
         command: "synth <param> <value> | preset <name>",
@@ -1200,6 +1201,9 @@ export const USAGE: Readonly<Record<string, string>> = {
   fx: "fx <effect> <param> <value> | on | off | preset <name> · fx delay mix 0.3",
   patch:
     "patch new|load|add|set|wire|unwire|macro|knob|rate|rm|save|show|nodes|convert|detach … [--fx <name>] · patch add osc as tone · patch wire tone.out out.audio",
+  preset:
+    "preset <name> | list [category|favs] | find <words> | info <name> | similar [name] | fav <name> | next | prev | browse · preset warm-pad · preset list bass",
+  presets: "/presets [category] · /presets · /presets bass",
   synth: "synth <param> <value> | preset <name> · synth lpf 1200",
   string:
     "string <preset> | preset <name> | <param> <value> | presets | reset | off · string koto",

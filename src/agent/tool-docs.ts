@@ -180,6 +180,16 @@ export const AGENT_TOOL_DOCS: Readonly<Record<string, AgentToolDoc>> =
       details:
         "Render and measure the song (read-only): integrated, short-term and momentary LUFS, loudness range, true peak, PLR, band balance (dB share), stereo correlation and side level, after the master. bypass_master:true measures before it.",
     },
+    preset_catalog: {
+      details:
+        "The built-in preset library (151 presets, 17 categories: init bass lead pad keys pluck mallet strings brass wind vox arp fx texture drums perc chain). No arguments: category counts and the focused track's preset. category: that category's rows (name · category · four knob names · description). query: fuzzy search over names, tags, knobs and descriptions ('808', 'fm bell', 'wrmpd'), optionally within a category. name: one preset's description, the advanced feature it shows, each knob's meaning, its /patch path and similar presets. Read only.",
+      example: { query: "warm pad" },
+    },
+    use_preset: {
+      details:
+        "Loads a preset like typing `preset <name>`, one undo step. Instrument presets replace the track's instrument with the preset patch (its four knobs are macros with lowercase ids: patch_edit ops [{op:'knob', id:'warmth', value:0.7}] or `patch knob warmth 0.7`); chain presets append an effect patch after the track's effects; drum presets load a kit and need a drum track. Pick with preset_catalog first; names are kebab-case (warm-pad, 808-boom, vocal-chain).",
+      example: { name: "warm-pad", trackId: "pad" },
+    },
     patch_edit: {
       details:
         'Edit a track\'s modular patch, or an effect patch (fx). ops run in order as one undo step; a bad op rejects all. Ops mirror typed `patch` lines: new {name, role?, from?}, add {type, id?, params?}, set {id, params}, wire {from, to, amount?} (node.port), unwire {from, to}, macro {id, targets:["node.port[:min..max]"], label?} (knobs 1-4 first), knob {id, value}, rate {id, rate}, rm {id}, convert, detach, load {name}, save {name}. Boundary ports: in.notes/audio/right/side, out.audio/right, voice.pitch/gate/velocity/note, song.beat/tempo. show:true reads it as lines.',

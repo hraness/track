@@ -64,6 +64,7 @@ export const CHECK_SCENARIOS = [
   "menu-depth",
   "help",
   "history",
+  "presets",
   "showme-stream",
 ];
 
@@ -341,6 +342,29 @@ export const SCENARIOS: readonly Scenario[] = [
       await t.until(() => t.vt.text().includes("history ·"), "history");
     },
     marker: (text) => text.includes("history"),
+    focus: focusShown,
+  },
+  {
+    // The preset browser (src/tui/preset-browser.ts): categories, then
+    // one category's presets with knob names and a feature line.
+    name: "presets",
+    async open(t) {
+      await ready(t);
+      await t.send("/presets\r");
+      await t.until(() => t.vt.text().includes("presets"), "presets");
+    },
+    marker: (text) => text.includes("preset"),
+    focus: focusShown,
+  },
+  {
+    name: "presets-category",
+    env: { NO_COLOR: "1" },
+    async open(t) {
+      await ready(t);
+      await t.send("/presets bass\r");
+      await t.until(() => t.vt.text().includes("sub-sine"), "bass list");
+    },
+    marker: (text) => text.includes("bass"),
     focus: focusShown,
   },
   {

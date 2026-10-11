@@ -13,6 +13,7 @@
  *   (while recording, sustain changes record as track pedal events)
  *   I      scale degrees: the home row plays the key's scale (any tuning)
  *   [ / ]  strum slower / faster (chords perform guitar, 5 ms steps)
+ *   , / .  previous / next preset in the track's category (core/presets)
  *
  * Terminals report key-down only, so a held key is synthesized from the
  * keyboard's auto-repeat: a press sounds for the gate (one grid step by
@@ -281,7 +282,15 @@ export function degreeLayout(
 }
 
 export type PlayCommand =
-  "exit" | "record" | "replace" | "click" | "transport" | "menu" | "degrees";
+  | "exit"
+  | "record"
+  | "replace"
+  | "click"
+  | "transport"
+  | "menu"
+  | "degrees"
+  | "preset-prev"
+  | "preset-next";
 
 /** Keys that drive the mode itself rather than notes. */
 const COMMAND_KEYS: Readonly<Record<string, PlayCommand>> = Object.freeze({
@@ -291,6 +300,8 @@ const COMMAND_KEYS: Readonly<Record<string, PlayCommand>> = Object.freeze({
   m: "click",
   M: "click",
   i: "degrees",
+  ",": "preset-prev",
+  ".": "preset-next",
   " ": "transport",
   "\u000b": "menu",
 });

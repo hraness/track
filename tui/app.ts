@@ -235,6 +235,20 @@ export interface PickerState {
    * returned as `pick-audition` instead of being swallowed.
    */
   audition?: boolean | undefined;
+  /**
+   * Fuzzy filter: how well an item matches the query (0 hides it); rows
+   * then sort best first. Without it the filter is a substring match.
+   */
+  rank?: ((query: string, item: PickerItem) => number) | undefined;
+  /** Rows shown while the filter is empty (default `all`). */
+  base?: readonly PickerItem[] | undefined;
+  /** Printable keys (but space) type into the filter without `/`. */
+  typeToFilter?: boolean | undefined;
+  /**
+   * Keys returned as `pick-key` with the focused row's value instead of
+   * being swallowed: single characters, plus `left` and `right`.
+   */
+  keys?: readonly string[] | undefined;
 }
 
 export interface PickerItem {
@@ -244,6 +258,8 @@ export interface PickerItem {
   detail?: string | undefined;
   /** Marked with ● (the current model). */
   current?: boolean | undefined;
+  /** The dim line under the rows while this row is focused. */
+  note?: string | undefined;
 }
 
 /** Most picker rows kept; longer lists are truncated by the caller's order. */
@@ -1266,7 +1282,8 @@ function paintPicker(
   if (!picker) return;
   const roles = ui.theme.roles;
   const { left, boxWidth } = panelRect(width);
-  const noteRows = picker.note && region.height >= 6 ? 1 : 0;
+  const note = picker.items[picker.index]?.note ?? picker.note;
+  const noteRows = note && region.height >= 6 ? 1 : 0;
   const height = Math.min(
     region.height,
     Math.max(1, picker.items.length) + 2 + noteRows,
@@ -1310,11 +1327,11 @@ function paintPicker(
       onBackground(roles.muted, panel),
     );
   const inner = height - 2 - noteRows;
-  if (noteRows && picker.note)
+  if (noteRows && note)
     buffer.text(
       left + 2,
       region.y + height - 2,
-      truncate(picker.note, boxWidth - 4),
+      truncate(note, boxWidth - 4),
       onBackground(roles.muted, panel),
     );
   const first = Math.max(
@@ -1707,6 +1724,8 @@ export type AppInput =
   | { type: "pick-move"; picker: string; value: string }
   /** Space, `a` or `c` on a picker that hosts the audition loop. */
   | { type: "pick-audition"; picker: string; key: "loop" | "ab" | "context" }
+  /** One of the picker's own `keys` on the focused row (`value`). */
+  | { type: "pick-key"; picker: string; key: string; value: string }
   /** Consumed by an overlay (scroll, filter, move). */
   | { type: "overlay" }
   | { type: "none" };
@@ -1909,8 +1928,44 @@ export class TuiApp {
         }
         if (key.type === "text") {
           this.filterPicker(((picker.query ?? "") + key.text).slice(0, 40));
-          return { type: "overlay" };
+          return picker.rank && this.picker
+            ? this.pickerMoved(this.picker)
+            : { type: "overlay" };
         }
+      }
+      if (picker.keys) {
+        const named =
+          value === "\u001b[C" || value === "\u001bOC"
+            ? "right"
+            : value === "\u001b[D" || value === "\u001bOD"
+              ? "left"
+              : value;
+        if (
+          picker.keys.includes(named) &&
+          !(picker.filtering && named.length === 1)
+        ) {
+          const item = picker.items[picker.index];
+          return {
+            type: "pick-key",
+            picker: picker.id,
+            key: named,
+            value: item?.value ?? "",
+          };
+        }
+      }
+      if (
+        picker.typeToFilter &&
+        key.type === "text" &&
+        key.text !== " " &&
+        key.text !== "?" &&
+        key.text !== "/" &&
+        !picker.filtering
+      ) {
+        picker.filtering = true;
+        this.filterPicker(((picker.query ?? "") + key.text).slice(0, 40));
+        return this.picker
+          ? this.pickerMoved(this.picker)
+          : { type: "overlay" };
       }
       if (picker.audition && !picker.filtering) {
         const audition =
@@ -2073,7 +2128,9 @@ export class TuiApp {
   }
 
   openPicker(picker: Omit<PickerState, "index"> & { index?: number }): void {
-    const items = picker.items.slice(0, MAX_PICKER_ITEMS);
+    const items = picker.rank
+      ? picker.items
+      : picker.items.slice(0, MAX_PICKER_ITEMS);
     if (items.length === 0) return;
     this.picker = {
       ...picker,
@@ -2089,17 +2146,30 @@ export class TuiApp {
     if (!picker) return;
     const all = picker.all ?? picker.items;
     const needle = query.toLowerCase();
-    const items = all.filter(
-      (item) =>
-        !needle ||
-        item.label.toLowerCase().includes(needle) ||
-        (item.detail ?? "").toLowerCase().includes(needle),
-    );
+    const rank = picker.rank;
+    const items = rank
+      ? needle.trim()
+        ? all
+            .map((item, at) => ({ item, at, score: rank(needle, item) }))
+            .filter((row) => row.score > 0)
+            .sort((a, b) => b.score - a.score || a.at - b.at)
+            .map((row) => row.item)
+        : (picker.base ?? all)
+      : all.filter(
+          (item) =>
+            !needle ||
+            item.label.toLowerCase().includes(needle) ||
+            (item.detail ?? "").toLowerCase().includes(needle),
+        );
     const keep = picker.items[picker.index]?.value;
-    const index = Math.max(
-      0,
-      items.findIndex((item) => item.value === keep),
-    );
+    // A ranked filter jumps to the best match; a plain one keeps the row.
+    const index =
+      rank && needle.trim()
+        ? 0
+        : Math.max(
+            0,
+            items.findIndex((item) => item.value === keep),
+          );
     this.picker = { ...picker, all, query, items, index };
   }
 

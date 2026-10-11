@@ -415,16 +415,18 @@ describe("edit menu", () => {
       .view(ctx)
       .items.map((row) => row.label.slice(0, 16).trim());
     expect(labels.slice(0, 3)).toEqual(["instrument", "preset", "attack"]);
-    expect(labels.at(-6)).toBe("advanced");
+    expect(labels.at(-7)).toBe("advanced");
     // 0.6: a pitched track can be turned into a grain cloud.
-    expect(labels.at(-5)).toBe("granular");
-    expect(labels.at(-4)).toBe("track tuning");
+    expect(labels.at(-6)).toBe("granular");
+    expect(labels.at(-5)).toBe("track tuning");
     // Patcher §7.4: Sound › patch.
-    expect(labels.at(-3)).toBe("patch");
+    expect(labels.at(-4)).toBe("patch");
     // 0.7: voice rows live in the Voice root now.
     expect(labels).not.toContain("Voice");
-    expect(labels.at(-2)).toBe("performance");
-    expect(labels.at(-1)).toBe("instruments");
+    expect(labels.at(-3)).toBe("performance");
+    expect(labels.at(-2)).toBe("instruments");
+    // The preset library (core/presets) closes Sound.
+    expect(labels.at(-1)).toBe("preset library");
     select(menu, ctx, "attack");
     expect(menu.key(RIGHT, ctx)).toMatchObject({ type: "run" });
     // Plain label; the note names the prompt command.

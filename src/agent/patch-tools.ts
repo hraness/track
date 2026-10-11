@@ -188,7 +188,7 @@ export function patchToolExamples(): string {
 }
 
 /** The system prompt's patcher paragraph. */
-export const PATCH_PROMPT = `Modular patches: patch_edit builds a track's sound from nodes (osc, svf, adsr, vca, delayline, engine.*, fx.*) wired port to port, with up to 8 macros (the first four are knobs 1-4). Only patch when asked for a patch, a modular sound or something no set_* tool covers; prefer patch load <built-in> then edits. Ops mirror these typed recipes (each op one command; ids are yours): ${patchToolExamples()}`;
+export const PATCH_PROMPT = `Modular patches: patch_edit builds a track's sound from nodes (osc, svf, adsr, vca, delayline, engine.*, fx.*) wired port to port, with up to 8 macros (the first four are knobs 1-4). For a ready-made sound (a warm pad, an 808, a vocal chain) use preset_catalog then use_preset. Only patch when asked for a patch, a modular sound or something no set_* tool covers; prefer patch load <built-in> or a preset, then edits. Ops mirror these typed recipes (each op one command; ids are yours): ${patchToolExamples()}`;
 
 export const PATCH_TOOLS = Object.freeze([
   {

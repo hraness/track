@@ -8,6 +8,7 @@
  *
  * Rendering reuses the TUI's picker overlay: `view()` returns a picker.
  */
+import { PRESETS } from "../../core/presets/index.ts";
 import { CHOP_OPS } from "../audio/chop/types.ts";
 import { CHOP_USAGE } from "../audio/chop/words.ts";
 import {
@@ -653,6 +654,8 @@ function withTopicAliases(
 }
 
 /** Sound: the instrument and its controls first, then the instruments. */
+const PRESET_COUNT = PRESETS.length;
+
 function soundSectionNodes(context: MenuContext): MenuNode[] {
   const track = focused(context);
   const tuning: MenuNode[] =
@@ -758,6 +761,12 @@ function soundSectionNodes(context: MenuContext): MenuNode[] {
       detail: soundsDetail(focused(context)),
       help: "every instrument: keys, strings, mallets, winds, granular, wavetables, sample packs",
       build: soundNodes,
+    },
+    {
+      kind: "action",
+      label: "preset library",
+      command: "preset browse",
+      help: `${PRESET_COUNT} presets by category · moving hears each · enter keeps · type to search`,
     },
   ];
 }

@@ -220,6 +220,21 @@ export const KEYS = {
       ],
     },
   ],
+  presets: [
+    {
+      title: "preset browser",
+      rows: [
+        ["↑ ↓", "move; each preset plays a short phrase"],
+        ["type", "search every preset by name, tag or knob (fuzzy)"],
+        ["enter", "open a category · keep the preset (one undo)"],
+        ["→", "presets like the highlighted one"],
+        ["←", "back to the categories"],
+        ["*", "star / unstar · starred is a category"],
+        ["space", "loop the focused track · moving hears it in the mix"],
+        ["esc", "clear the search, then revert and close"],
+      ],
+    },
+  ],
   preview: [
     {
       title: "patterns",
@@ -350,6 +365,7 @@ export const KEYS = {
         ["r R", "record · replace · keys record (a pass an undo)"],
         ["m", "metronome click"],
         ["i", "scale degrees ⇄ chromatic (home row in key)"],
+        [", .", "previous / next preset (preset prev, preset next)"],
         ["q", "chord mode: auto ⇄ manual"],
         ["/", "type a command, still in play mode"],
         ["ctrl-k", "menu"],
