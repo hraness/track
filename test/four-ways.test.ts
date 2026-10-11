@@ -219,6 +219,27 @@ export const FEATURES: readonly Feature[] = [
     gap: { agent: "show-me is the agent's own display; it has no tool" },
   },
   {
+    feature: "read roots",
+    command: "/agent read-root list",
+    menu: "Project › agent › read roots",
+    tools: [],
+    agentWords: /read.?root/,
+    sdk: ["cli:/agent read-root"],
+    gap: {
+      agent:
+        "human only: the agent can read the roots but never widen its own access",
+    },
+  },
+  {
+    feature: "trusted shell",
+    command: "/agent shell on",
+    menu: "Project › agent › shell",
+    tools: [],
+    agentWords: /trusted.?shell|set.?shell/,
+    sdk: ["cli:/agent shell"],
+    gap: { agent: "human only: the agent can never switch on its own shell" },
+  },
+  {
     feature: "play mode",
     command: "/play on",
     // `play` in ctrl-k is the transport (§8.2): a play-mode row must run
@@ -485,6 +506,8 @@ describe("four doors to every feature", () => {
       "history",
       "model",
       "show-me",
+      "read roots",
+      "trusted shell",
       "play mode",
       "tape",
       "rig",

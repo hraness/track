@@ -2,9 +2,12 @@
  * Workspace file access for the agent. The project root is the directory
  * `dawg` runs in. Every path the model supplies is resolved lexically, then
  * through `realpath`, and must stay under the root; `.dawg/` is dawg's own
- * state and is never reachable. Reads cover the whole project; writes are
- * limited to `song.ts` and the focused track's `tracks/<slug>/` directory.
- * Every operation is bounded in entries and bytes.
+ * state and is never reachable (except reads of `.dawg/logs/`); `.git/` and
+ * `node_modules/` are denied too, matched case-insensitively. Reads cover the
+ * project plus the read-only `readRoots` the human listed in
+ * `.dawg/agent.json`; writes cover the rest of the project (a dispatch
+ * subagent: only its `writeGlobs`). After untrusted content in a turn, code
+ * files are not writable. Every operation is bounded in entries and bytes.
  */
 import {
   lstat,
@@ -45,6 +48,28 @@ export const WORKSPACE_LIMITS = Object.freeze({
 /** The directory dawg owns; invisible to the file tools. */
 export const RUNTIME_DIR = ".dawg";
 const OUTLINE_HIDDEN = new Set([RUNTIME_DIR, "node_modules", ".git"]);
+/** First path segments no tool reads or writes (compared lower-case). */
+export const DENIED_DIRS: readonly string[] = Object.freeze([
+  RUNTIME_DIR,
+  ".git",
+  "node_modules",
+]);
+/** Code files: evaluated on the next sync, so refused after untrusted content. */
+const CODE_FILE = /\.(?:[cm]?[jt]sx?)$/i;
+
+/**
+ * After untrusted content, code writes are refused except track data files
+ * under `tracks/<slug>/` (design §6.2): `song.ts`, `lib/**`, new `.ts`.
+ */
+function untrustedRefused(scope: WorkspaceScope, rel: string): boolean {
+  return (
+    scope.untrusted === true &&
+    CODE_FILE.test(rel) &&
+    !/^tracks\/[^/]+\//i.test(rel)
+  );
+}
+/** Where delete_file keeps a copy of what it removed. */
+export const TRASH_DIR = `${RUNTIME_DIR}/trash`;
 
 export type WorkspaceScope = Readonly<{
   /** Absolute project root (the session workspace). */
@@ -56,7 +81,15 @@ export type WorkspaceScope = Readonly<{
    * globs (`**` any depth, `*` within a segment) instead of the defaults.
    */
   writeGlobs?: readonly string[];
+  /** Realpaths of read-only directories outside the project (`readRoots`). */
+  readRoots?: readonly string[];
+  /** Untrusted content was seen this turn: code files are not writable. */
+  untrusted?: boolean;
 }>;
+
+/** The message for writes refused after untrusted content. */
+export const UNTRUSTED_WRITE =
+  "untrusted content seen this turn; ask the user and continue next turn";
 
 /** Glob match for write scopes: `**` any depth, `*` and `?` within a segment. */
 export function globMatch(glob: string, path: string): boolean {
@@ -94,18 +127,39 @@ export type ResolvedPath = Readonly<{
 /** Project-relative roots this scope may write under. */
 export function writeRoots(scope: WorkspaceScope): readonly string[] {
   if (scope.writeGlobs) return scope.writeGlobs;
-  return ["song.ts", `tracks/${scope.trackSlug}/`];
+  return ["the project except .dawg/, .git/ and node_modules/"];
 }
 
 export function inWriteScope(scope: WorkspaceScope, rel: string): boolean {
+  if (rel === "" || deniedSegment(rel.split("/")[0]!)) return false;
   if (scope.writeGlobs)
     return scope.writeGlobs.some((glob) => globMatch(glob, rel));
-  return rel === "song.ts" || rel.startsWith(`tracks/${scope.trackSlug}/`);
+  return true;
+}
+
+/** True for a first segment no tool may touch (case-insensitive). */
+function deniedSegment(segment: string): boolean {
+  return DENIED_DIRS.includes(segment.toLowerCase());
+}
+
+/** `.dawg/logs/**` is the one readable part of `.dawg/` (exec logs). */
+function readableRuntime(segments: readonly string[]): boolean {
+  return (
+    segments.length >= 2 &&
+    segments[0]!.toLowerCase() === RUNTIME_DIR &&
+    segments[1]!.toLowerCase() === "logs"
+  );
+}
+
+function deniedMessage(rel: string, first: string): string {
+  return first.toLowerCase() === RUNTIME_DIR
+    ? `${rel} is inside ${RUNTIME_DIR}/, which dawg owns; tools cannot read or write there`
+    : `${rel} is inside ${first}/, which the file tools do not touch`;
 }
 
 function outsideWriteScope(scope: WorkspaceScope, rel: string): WorkspaceError {
   return new WorkspaceError(
-    `${rel || "."} is outside this window's writable scope; it may write ${writeRoots(scope).join(" and ") || "nothing"} (reads work anywhere except ${RUNTIME_DIR}/)`,
+    `${rel || "."} is outside this ${scope.writeGlobs ? "task's" : "window's"} writable scope; it may write ${writeRoots(scope).join(" and ") || "nothing"} (reads work anywhere except ${RUNTIME_DIR}/)`,
   );
 }
 
@@ -118,6 +172,7 @@ export function lexicalPath(
   scope: WorkspaceScope,
   input: unknown,
   label = "path",
+  mode: "read" | "write" = "write",
 ): ResolvedPath {
   if (typeof input !== "string")
     throw new WorkspaceError(`${label} must be a string`);
@@ -138,10 +193,12 @@ export function lexicalPath(
     throw new WorkspaceError(
       `${label} has more than ${WORKSPACE_LIMITS.maxPathSegments} segments`,
     );
-  if (segments[0] === RUNTIME_DIR)
-    throw new WorkspaceError(
-      `${segments.join("/")} is inside ${RUNTIME_DIR}/, which dawg owns; tools cannot read or write there`,
-    );
+  if (
+    segments.length > 0 &&
+    deniedSegment(segments[0]!) &&
+    !(mode === "read" && readableRuntime(segments))
+  )
+    throw new WorkspaceError(deniedMessage(segments.join("/"), segments[0]!));
   return { abs, rel: segments.join("/") };
 }
 
@@ -154,18 +211,77 @@ async function realRoot(scope: WorkspaceScope): Promise<string> {
 }
 
 /** Relative path of `real` under the real root, or a diagnostic for `rel`. */
-function realRelative(root: string, real: string, rel: string): string {
+function realRelative(
+  root: string,
+  real: string,
+  rel: string,
+  mode: "read" | "write" = "write",
+): string {
   const realRel = relative(root, real);
   if (escapes(realRel))
     throw new WorkspaceError(
       `${rel || "."} resolves through a symlink that leaves the project`,
     );
   const segments = realRel === "" ? [] : realRel.split(sep);
-  if (segments[0] === RUNTIME_DIR)
+  if (
+    segments.length > 0 &&
+    deniedSegment(segments[0]!) &&
+    !(mode === "read" && readableRuntime(segments))
+  )
     throw new WorkspaceError(
-      `${rel || "."} resolves into ${RUNTIME_DIR}/, which dawg owns`,
+      segments[0]!.toLowerCase() === RUNTIME_DIR
+        ? `${rel || "."} resolves into ${RUNTIME_DIR}/, which dawg owns`
+        : `${rel || "."} resolves into ${segments[0]}/, which the file tools do not touch`,
     );
   return segments.join("/");
+}
+
+/** The read root holding absolute `real`, if any. */
+function underReadRoot(
+  scope: WorkspaceScope,
+  real: string,
+): string | undefined {
+  return (scope.readRoots ?? []).find(
+    (root) => real === root || real.startsWith(`${root}${sep}`),
+  );
+}
+
+/**
+ * An absolute path outside the project that sits in a read root, resolved
+ * through realpath (a symlink inside the root that leaves it is refused).
+ */
+async function resolveReadRootPath(
+  scope: WorkspaceScope,
+  input: string,
+): Promise<(ResolvedPath & { real: string }) | undefined> {
+  if (!isAbsolute(input) || !scope.readRoots?.length) return undefined;
+  const abs = resolve(input);
+  if (!underReadRoot(scope, abs)) {
+    // The root itself may be stored by realpath while the input uses a link.
+    const viaReal = await realpath(abs).catch(() => undefined);
+    if (!viaReal || !underReadRoot(scope, viaReal)) return undefined;
+  }
+  let real: string;
+  try {
+    real = await realpath(abs);
+  } catch (error) {
+    if (isNotFound(error)) throw new WorkspaceError(`${abs}: no such file`);
+    throw new WorkspaceError(`${abs}: ${fsMessage(error)}`);
+  }
+  if (!underReadRoot(scope, real))
+    throw new WorkspaceError(
+      `${abs} resolves through a symlink that leaves its read root`,
+    );
+  // A read root that contains the project never reopens .dawg/ or .git/:
+  // project paths always take the project rules.
+  const root = await realRoot(scope);
+  if (real === root || real.startsWith(`${root}${sep}`)) return undefined;
+  return { abs, rel: real, real };
+}
+
+/** Whether a resolved path is outside the project (a read root). */
+export function isExternal(path: { rel: string }): boolean {
+  return isAbsolute(path.rel);
 }
 
 /** Resolve a path for reading: it must exist and stay under the root after `realpath`. */
@@ -174,7 +290,11 @@ export async function resolveReadPath(
   input: unknown,
   label = "path",
 ): Promise<ResolvedPath & { real: string }> {
-  const lexical = lexicalPath(scope, input, label);
+  if (typeof input === "string" && !input.includes("\0")) {
+    const external = await resolveReadRootPath(scope, input);
+    if (external) return external;
+  }
+  const lexical = lexicalPath(scope, input, label, "read");
   const root = await realRoot(scope);
   let real: string;
   try {
@@ -184,7 +304,7 @@ export async function resolveReadPath(
       throw new WorkspaceError(`${lexical.rel || "."}: no such file`);
     throw new WorkspaceError(`${lexical.rel || "."}: ${fsMessage(error)}`);
   }
-  realRelative(root, real, lexical.rel);
+  realRelative(root, real, lexical.rel, "read");
   return { ...lexical, real };
 }
 
@@ -200,6 +320,8 @@ export async function resolveWritePath(
   const lexical = lexicalPath(scope, input);
   if (!inWriteScope(scope, lexical.rel))
     throw outsideWriteScope(scope, lexical.rel);
+  if (untrustedRefused(scope, lexical.rel))
+    throw new WorkspaceError(`${lexical.rel}: ${UNTRUSTED_WRITE}`);
   const root = await realRoot(scope);
   let ancestor = lexical.abs;
   const tail: string[] = [];
@@ -231,6 +353,8 @@ export async function resolveWritePath(
   });
   const realRel = realRelative(root, join(realAncestor, ...tail), lexical.rel);
   if (!inWriteScope(scope, realRel)) throw outsideWriteScope(scope, realRel);
+  if (untrustedRefused(scope, realRel))
+    throw new WorkspaceError(`${lexical.rel}: ${UNTRUSTED_WRITE}`);
   return lexical;
 }
 
@@ -258,7 +382,7 @@ export async function listFiles(
     throw new WorkspaceError(`${target.rel || "."}: ${fsMessage(error)}`);
   }
   const visible = names
-    .filter((entry) => !(target.rel === "" && entry.name === RUNTIME_DIR))
+    .filter((entry) => !(target.rel === "" && deniedSegment(entry.name)))
     .sort(
       (left, right) =>
         Number(right.isDirectory()) - Number(left.isDirectory()) ||
@@ -428,6 +552,10 @@ export async function writeFile(
 ): Promise<WriteResult> {
   if (typeof content !== "string")
     throw new WorkspaceError("content must be a string");
+  if (content.includes("\0"))
+    throw new WorkspaceError(
+      "content contains NUL bytes; write audio and other binary files with the audio tools",
+    );
   const bytes = new TextEncoder().encode(content);
   if (bytes.byteLength > WORKSPACE_LIMITS.maxWriteBytes)
     throw new WorkspaceError(
@@ -662,7 +790,7 @@ async function sizeOf(path: string): Promise<number> {
   }
 }
 
-async function exists(path: string): Promise<boolean> {
+export async function exists(path: string): Promise<boolean> {
   try {
     await lstat(path);
     return true;
@@ -681,7 +809,7 @@ function trim(value: number): string {
   return (Math.round(value * 10) / 10).toString();
 }
 
-function isNotFound(error: unknown): boolean {
+export function isNotFound(error: unknown): boolean {
   return (error as { code?: string } | null)?.code === "ENOENT";
 }
 
@@ -689,7 +817,7 @@ function isNotDirectory(error: unknown): boolean {
   return (error as { code?: string } | null)?.code === "ENOTDIR";
 }
 
-function fsMessage(error: unknown): string {
+export function fsMessage(error: unknown): string {
   const code = (error as { code?: string } | null)?.code;
   switch (code) {
     case "ENOENT":

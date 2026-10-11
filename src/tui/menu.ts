@@ -219,6 +219,8 @@ export type MenuContext = Readonly<{
   countInBars: number;
   /** How much agent turns show (`/showme`); absent hides the row. */
   showMe?: string;
+  /** The trusted-shell switch in `.dawg/agent.json` (`/agent shell`). */
+  agentShell?: boolean;
   /** Project › audio: the chosen devices and the lists to pick from. */
   audio?: MenuAudioDevices;
   /** The session's name, for Project › session and export file names. */
@@ -1070,6 +1072,20 @@ function agentNodes(context: MenuContext): MenuNode[] {
             command: (option: string) => `/showme ${option}`,
           },
         ]),
+    {
+      kind: "action",
+      label: "read roots",
+      command: "/agent read-root list",
+      help: "folders outside the project the agent may read; add with /agent read-root add <folder>",
+    },
+    {
+      kind: "choice",
+      label: "shell",
+      help: "trusted shell: the agent's exec may run any command line in this project",
+      value: context.agentShell ? "on" : "off",
+      options: ["off", "on"],
+      command: (option: string) => `/agent shell ${option}`,
+    },
     {
       kind: "action",
       label: "model key",

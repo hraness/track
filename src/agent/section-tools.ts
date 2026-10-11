@@ -284,7 +284,7 @@ export const SECTION_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "list_sections",
     description:
-      "Show the song's sections (bars count from 1), the form, the looped section and the arranged length.",
+      "Show the song's sections (bars count from 1), the form, the looped section and the arranged length (or inspect sections).",
     parameters: { type: "object", properties: {}, additionalProperties: false },
     plan(_args, context) {
       const score = context.score;

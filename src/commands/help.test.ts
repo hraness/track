@@ -70,6 +70,7 @@ describe("help reference", () => {
     ).map((command) => command.split(/[\s[]/)[0]);
     expect([...new Set(slashed)].sort()).toEqual(
       [
+        "/agent",
         "/auth",
         "/bpm",
         "/chords",

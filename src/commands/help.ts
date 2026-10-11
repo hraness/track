@@ -721,6 +721,16 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
         summary:
           "the agent types its commands in your prompt bar as it streams",
       },
+      {
+        command: "/agent read-root add|remove|list [folder]",
+        summary:
+          "let the agent read a folder outside the project (never write) · human only",
+      },
+      {
+        command: "/agent shell on|off",
+        summary:
+          "trusted shell: exec may run any command line here · off by default, human only",
+      },
     ],
   },
 ];
