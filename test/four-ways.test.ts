@@ -380,6 +380,13 @@ export const FEATURES: readonly Feature[] = [
       menu: "the typed verb still refuses (it needs a parser for pattern text); its ctrl-k row comes with it",
     },
   },
+  {
+    feature: "audio chop",
+    command: "/chop cut a.wav 1s 2s",
+    menu: "Project › media › chop",
+    tools: ["audio"],
+    sdk: ["cli:dawg media chop"],
+  },
 ];
 
 const walked = walkAll().flatMap((entry) => entry.walked);
@@ -498,6 +505,7 @@ describe("four doors to every feature", () => {
       "patch nodes",
       "effect patch",
       "patch mod",
+      "audio chop",
     ]);
   });
 

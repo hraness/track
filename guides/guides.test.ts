@@ -237,6 +237,7 @@ const MENU: MenuNode = {
       "resample",
     ),
     session: leaves("rename", "fork", "resume"),
+    media: leaves("chop", "chop help"),
     agent: leaves("model", "show-me", "model key"),
     audio: leaves("output", "input", "test"),
     "help and guides": leaves("help", "guides", "keys"),

@@ -263,6 +263,12 @@ import {
   parseAutotuneCommand,
 } from "./commands/autotune.ts";
 import { parseResampleCommand, runResample } from "./commands/resample.ts";
+import { chopHelpLines, parseChopCommand } from "./audio/chop/command.ts";
+import { runChop, stemOf } from "./audio/chop/run.ts";
+import { slicesToSampler } from "./audio/chop/sampler.ts";
+import { auditionPcm } from "./audio/chop/audition.ts";
+import type { ChopResult } from "./audio/chop/types.ts";
+import { trackSlug as chopTrackSlug } from "../core/slug.ts";
 import { suggestFitMode } from "./audio/dsp/onset.ts";
 import {
   SampleLibrary,
@@ -2784,6 +2790,8 @@ async function submit(prompt: string): Promise<string | Receipt> {
   }
   const resample = parseResampleCommand(command);
   if (resample) return resampleCommand(resample);
+  const chop = parseChopCommand(command);
+  if (chop) return chopCommand(chop);
   // 0.7 clips: `/clip` edits and `/lyrics` on the focused track.
   const clipCommand = parseClipCommand(command);
   if (clipCommand) {
@@ -3822,6 +3830,126 @@ async function fitCommand(
       ? `${result.message} · suggested from the sound (${suggested === "beats" ? "hits" : "held tones"})`
       : result.message,
   );
+}
+
+/** `/chop …`: the audio chop toolkit (same runChop as the agent's audio tool). */
+async function chopCommand(
+  command: NonNullable<ReturnType<typeof parseChopCommand>>,
+): Promise<Receipt> {
+  if (command.kind === "help") {
+    tui.openText("chop", chopHelpLines());
+    return ok("chop · /chop <op> <file> …");
+  }
+  if (command.kind === "error") return fail(command.message);
+  const focused = score.tracks.find((track) => track.id === requestedTrack);
+  const slug = chopTrackSlug(focused?.name ?? requestedTrack);
+  tui.activity.setSpinner(`chop ${command.op}`);
+  let result: ChopResult;
+  try {
+    result = await runChop(command.op, command.args, {
+      root: process.cwd(),
+      runner: systemRunner,
+      signal: new AbortController().signal,
+      trackSlug: slug,
+      tempo: { bpm: score.tempoBpm, beatsPerBar: score.beatsPerBar },
+      actor: { kind: "human" },
+      ascii: !tui.capabilities.unicode,
+      audition: async (path, from, to) => {
+        await playFileForAgent(path, from, to);
+      },
+      // Default: historySink(), set when the session opens (lane hist).
+      ...(mediaServices().chopHistory
+        ? { history: mediaServices().chopHistory! }
+        : {}),
+    });
+  } catch (error) {
+    return fail(
+      `chop ${command.op} · ${error instanceof Error ? error.message : String(error)}`,
+    );
+  } finally {
+    tui.activity.setSpinner(undefined);
+  }
+  if (command.op === "slice" && command.args.track) {
+    await materializeDraft();
+    const trackId = command.args.track;
+    let loaded;
+    try {
+      loaded = slicesToSampler(
+        score,
+        trackId,
+        stemOf(command.args.input ?? "slice"),
+        result.outputs,
+        {
+          ...(command.args.pattern ? { pattern: true } : {}),
+          newNoteId: (index) => `${trackId}-chop-${record.revision}-${index}`,
+        },
+      );
+    } catch (error) {
+      return fail(
+        `chop slice · ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    let next = score;
+    for (const operation of loaded.operations)
+      next = applyScoreOperation(next, operation);
+    await commitScore(next, "audio.slice", {
+      trackId,
+      voices: loaded.voices,
+    });
+    await projectSync?.flushScore();
+    return ok(
+      `${result.summary} · ${loaded.voices.length} voices on ${trackId}${loaded.notes ? ` · ${loaded.notes} notes` : ""} · ctrl-z undoes`,
+    );
+  }
+  const lines = chopResultLines(result);
+  if (lines.length > 1) tui.openText(`chop ${command.op}`, lines);
+  return ok(result.summary);
+}
+
+function chopResultLines(result: ChopResult): string[] {
+  const lines = [result.summary];
+  if (result.info)
+    lines.push(
+      `${result.info.path} · ${result.info.seconds.toFixed(2)} s · ${result.info.sampleRate} Hz · ${result.info.channels} ch · ${result.info.format}`,
+      `peak ${result.info.peakDb} dB · rms ${result.info.rmsDb} dB · sha256 ${result.info.sha256.slice(0, 12)}`,
+    );
+  if (result.peaks) lines.push("", result.peaks.text);
+  if (result.bpm) lines.push(`bpm ${result.bpm}`);
+  for (const point of (result.points ?? []).slice(0, 64))
+    lines.push(
+      `${point.t.toFixed(3)} s${point.end !== undefined ? ` – ${point.end.toFixed(3)} s` : ""}${point.score !== undefined ? ` · score ${point.score.toFixed(2)}` : ""}${point.label ? ` · ${point.label}` : ""}`,
+    );
+  if ((result.points?.length ?? 0) > 64)
+    lines.push(
+      `… ${result.points!.length - 64} more (dawg media chop … --json)`,
+    );
+  for (const output of result.outputs)
+    lines.push(
+      `→ ${output.path} · ${output.seconds.toFixed(2)} s · peak ${output.peakDb} dB`,
+    );
+  if (result.truncated)
+    lines.push(
+      `analyzed ${result.truncated.analysedSeconds} s of ${result.truncated.totalSeconds} s`,
+    );
+  return lines;
+}
+
+/** Play a file (or range) through the agent preview voice; false when silent. */
+async function playFileForAgent(
+  path: string,
+  from?: number,
+  to?: number,
+): Promise<boolean> {
+  const engine = liveEngine();
+  if (!engine?.canMonitor) return false;
+  const rendered = await auditionPcm(
+    path,
+    systemRunner,
+    previewEngine().sampleRate,
+    from,
+    to,
+  );
+  return (await agentPreviewHost().play?.(rendered)) ?? false;
 }
 
 async function resampleCommand(
@@ -6779,6 +6907,7 @@ function agentPreviewHost(): PreviewHost {
           : { sampleRate: options.sampleRate }),
       });
     },
+    playFile: (path, from, to) => playFileForAgent(path, from, to),
     play: async (rendered) => {
       if (!agentPreviewPlays || clock.playing || auditionLoop?.looping)
         return false;

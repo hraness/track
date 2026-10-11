@@ -789,6 +789,10 @@ async function executeCallInner(
     try {
       plan = await plan.run({
         ...(context.host.packs ? { packs: context.host.packs } : {}),
+        ...(context.host.workspace
+          ? { workspace: context.host.workspace }
+          : {}),
+        ...(context.host.media ? { media: context.host.media } : {}),
         ...(context.signal ? { signal: context.signal } : {}),
       });
     } catch (error) {
@@ -809,6 +813,7 @@ async function executeCallInner(
       ...(context.host.web ? { web: context.host.web } : {}),
       ...(context.host.packs ? { packs: context.host.packs } : {}),
       ...(context.host.preview ? { preview: context.host.preview } : {}),
+      ...(context.host.media ? { media: context.host.media } : {}),
       ...(context.signal ? { signal: context.signal } : {}),
     };
     try {
