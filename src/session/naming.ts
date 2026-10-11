@@ -232,6 +232,13 @@ export interface NamingTarget {
   ): Promise<{ status: "applied" | "stale"; meta: SessionMeta }>;
   /** Names of other sessions in the workspace, for collision suffixes. */
   otherNames(): Promise<string[]>;
+  /**
+   * The session's score now and its revision. When given, a run names this
+   * score and writes only if the revision still matches, so of several
+   * windows naming one session, one name per revision wins and a run that
+   * read an older score is dropped instead of overwriting a newer name.
+   */
+  current?(): { score: TrackScore; revision: number };
 }
 
 export type AutoNamerOptions = {
@@ -278,6 +285,8 @@ export class AutoNamer {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private running: Promise<void> | undefined;
   private rerun = false;
+  /** One retry per trigger after a run went stale on the score revision. */
+  private retried = false;
   private disposed = false;
   private readonly controller = new AbortController();
 
@@ -300,12 +309,8 @@ export class AutoNamer {
     this.turnsSinceName += 1;
     if (this.options.target.meta().nameSource !== "auto") return;
     // Coalesce bursts: each accepted turn restarts the quiet period.
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => {
-      this.timer = undefined;
-      void this.kick();
-    }, this.delayMs);
-    this.timer.unref?.();
+    this.retried = false;
+    this.schedule();
   }
 
   /** After `/rename --auto`: name soon from `score`, bypassing the turn limit. */
@@ -313,6 +318,12 @@ export class AutoNamer {
     if (this.disposed) return;
     this.score = score;
     this.turnsSinceName = this.minTurns;
+    this.retried = false;
+    this.schedule();
+  }
+
+  private schedule(): void {
+    if (this.disposed) return;
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.timer = undefined;
@@ -323,12 +334,15 @@ export class AutoNamer {
 
   /** Resolves when no run is pending or in flight (for tests and exit). */
   public async idle(): Promise<void> {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = undefined;
-      await this.kick();
+    for (;;) {
+      if (this.timer) {
+        clearTimeout(this.timer);
+        this.timer = undefined;
+        await this.kick();
+      }
+      while (this.running) await this.running;
+      if (!this.timer) return;
     }
-    while (this.running) await this.running;
   }
 
   public dispose(): void {
@@ -357,8 +371,9 @@ export class AutoNamer {
   }
 
   private async run(): Promise<void> {
-    const score = this.score;
-    if (!score || this.disposed) return;
+    if (!this.score || this.disposed) return;
+    const now = this.options.target.current?.();
+    const score = now?.score ?? this.score;
     const meta = this.options.target.meta();
     if (meta.nameSource !== "auto") return;
     const fingerprint = musicalFingerprint(score);
@@ -418,12 +433,23 @@ export class AutoNamer {
       namedStructure: fingerprint.structure,
     };
     if (name !== meta.name) patch.name = name;
-    const result = await this.options.target.updateMeta(patch, {
-      name: meta.name,
-      nameSource: "auto",
-    });
+    const expect: MetaExpect = { name: meta.name, nameSource: "auto" };
+    if (now) expect.revision = now.revision;
+    const result = await this.options.target.updateMeta(patch, expect);
     if (result.status === "stale") {
       this.stats.dropped += 1;
+      // Only the score moved on (a newer edit, or play/stop from any
+      // window): name the newer revision once more after the quiet period.
+      // A changed name or a user rename is final.
+      if (
+        now &&
+        !this.retried &&
+        result.meta.name === meta.name &&
+        result.meta.nameSource === "auto"
+      ) {
+        this.retried = true;
+        this.schedule();
+      }
       return;
     }
     this.turnsSinceName = 0;

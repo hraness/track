@@ -364,7 +364,8 @@ export type MetaUpdate<T> =
 /**
  * Conditional metadata write under the session lock. It applies only when
  * `expect` still matches the record on disk, so the latest user rename wins
- * and an in-flight auto-name computed against an older name is dropped.
+ * and an in-flight auto-name computed against an older name, or against an
+ * older score revision, is dropped.
  * The score revision and event log are untouched.
  */
 export async function updateSessionMeta<T>(
@@ -375,7 +376,7 @@ export async function updateSessionMeta<T>(
   const release = await acquireSessionLock(paths.lock);
   try {
     const disk = await readRecord<T>(paths.record);
-    if (!metaMatches(disk.meta, expect))
+    if (!metaMatches(disk.meta, expect, disk.revision))
       return { status: "stale", record: disk };
     const next: SessionRecord<T> = {
       ...disk,

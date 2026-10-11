@@ -9,6 +9,7 @@ import {
   applyMetaPatch,
   defaultSessionMeta,
   metaMatches,
+  parseMetaExpect,
   type MetaExpect,
   type MetaPatch,
   type SessionMeta,
@@ -176,6 +177,102 @@ describe("name validation", () => {
     );
     expect(sanitizeGeneratedName(42)).toBeUndefined();
   });
+});
+
+describe("meta conditions", () => {
+  test("a revision condition parses and matches only that revision", () => {
+    const expect_ = parseMetaExpect({ nameSource: "auto", revision: 4 })!;
+    expect(expect_).toEqual({ nameSource: "auto", revision: 4 });
+    const meta = defaultSessionMeta("2026-10-06T00:00:00.000Z");
+    expect(metaMatches(meta, expect_, 4)).toBe(true);
+    expect(metaMatches(meta, expect_, 5)).toBe(false);
+    expect(metaMatches(meta, { nameSource: "auto" }, 5)).toBe(true);
+    for (const revision of [-1, 1.5, "4", Number.NaN])
+      expect(() => parseMetaExpect({ revision })).toThrow("meta revision");
+  });
+});
+
+describe("AutoNamer across windows", () => {
+  /** One session on disk; each window reads it through its own target. */
+  class SharedSession {
+    public meta: SessionMeta = defaultSessionMeta("2026-10-06T00:00:00.000Z");
+    public revision = 0;
+    public score: TrackScore = createScore({ tempoBpm: 120, tracks: [] });
+    public writes: string[] = [];
+    edit(score: TrackScore): number {
+      this.score = score;
+      return (this.revision += 1);
+    }
+    target(): NamingTarget {
+      return {
+        meta: () => this.meta,
+        current: () => ({ score: this.score, revision: this.revision }),
+        updateMeta: async (patch, expect) => {
+          if (!metaMatches(this.meta, expect, this.revision))
+            return { status: "stale" as const, meta: this.meta };
+          this.meta = applyMetaPatch(this.meta, patch, "2026-10-06T00:00:01Z");
+          if (patch.name) this.writes.push(patch.name);
+          return { status: "applied" as const, meta: this.meta };
+        },
+        otherNames: async () => [],
+      };
+    }
+  }
+  /** Names the score it was asked about, after `ms`. */
+  const slow = (ms: number): NameGenerator => ({
+    async generate(prompt) {
+      await Bun.sleep(ms);
+      return prompt.includes("drums") && !prompt.includes("bass")
+        ? "drum loop only"
+        : "bass and drums";
+    },
+  });
+  const drums = () =>
+    notes(
+      createScore({
+        tempoBpm: 96,
+        tracks: [{ id: "drums", name: "drums", instrument: "kit" }],
+      }),
+      "drums",
+      [36, 42, 38, 42],
+    );
+
+  // [A's model ms, B's model ms, A's quiet period ms]: A's run either is in
+  // flight when B edits, or starts only after B has already named the song.
+  for (const [first, second, quiet] of [
+    [200, 1, 1],
+    [1, 200, 1],
+    [1, 1, 100],
+  ] as const)
+    test(`the newest revision's name wins (model ${first}/${second} ms, quiet ${quiet} ms)`, async () => {
+      const session = new SharedSession();
+      const a = new AutoNamer({
+        target: session.target(),
+        generator: slow(first),
+        delayMs: quiet,
+      });
+      const b = new AutoNamer({
+        target: session.target(),
+        generator: slow(second),
+        delayMs: 1,
+      });
+      // Window A adds drums and starts naming; window B adds the bass while
+      // A's request is in flight.
+      a.noteTurn({ score: session.score, prompt: "drums", accepted: true });
+      session.edit(drums());
+      a.noteTurn({ score: drums(), prompt: "drums", accepted: true });
+      await Bun.sleep(20);
+      session.edit(groove());
+      b.noteTurn({ score: groove(), prompt: "bass", accepted: true });
+      await Promise.all([a.idle(), b.idle()]);
+      expect(session.meta.name).toBe("bass and drums");
+      expect(session.meta.namedFingerprint).toBe(
+        musicalFingerprint(groove()).hash,
+      );
+      expect(session.writes.at(-1)).toBe("bass and drums");
+      a.dispose();
+      b.dispose();
+    });
 });
 
 describe("AutoNamer", () => {
