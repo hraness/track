@@ -163,7 +163,7 @@ export type ChopResult = Readonly<{
 export type ChopHistory = Readonly<{
   append(row: {
     sessionId: string;
-    kind: "asset";
+    kind: "asset" | "tool";
     sub?: string;
     atRev: number;
     actor: ChopActor;
