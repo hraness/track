@@ -170,6 +170,23 @@ export const SCENES: Scene[] = [
     },
   },
   {
+    id: "patch",
+    title:
+      "/patch: the acid-bass patch on the bass track, its nodes, ports, cables and four macro knobs",
+    cols: 80,
+    rows: 24,
+    async run(stage, size) {
+      const pty = await song(stage, size, ["--track", "bass"]);
+      await stage.type(pty, "patch load acid-bass\r");
+      await stage.until(has(pty, "now plays patch acid-bass"), "loaded", pty);
+      await stage.type(pty, "/patch\r");
+      await stage.until(has(pty, "CABLES"), "patch view", pty);
+      for (let i = 0; i < 5; i++) await stage.type(pty, DOWN);
+      await stage.until(has(pty, "▸vcf"), "vcf selected", pty);
+      return stage.capture(pty, "patch");
+    },
+  },
+  {
     id: "menu",
     title: "The Ctrl-K menu: every edit reachable with keys alone",
     cols: 80,

@@ -180,6 +180,39 @@ Ctrl-T opens TAPE: every track across the bars, one row each, with sections and 
 
 A NOW send runs ahead of work waiting as NEXT. Bracketed paste preserves multiline input.
 
+## Patches
+
+A patch is a small modular synth or effect: oscillators, filters, envelopes and math, plus dawg's own engines and effects as nodes, joined by cables. `patch load acid-bass` puts a built-in on the focused track and `/patch` opens it (Ctrl-K › Sound › patch):
+
+```text
+ ⏸ 121 BPM · 1.1 · bass        Bb dorian · opus-5.5 · gateway · rev 2 · ○ local
+ patch bass ▸ acid-bass (instrument · 7 nodes · 10 cables · 1 voice)
+ NODES                        │ vcf  svf · voice
+ voice    ◆                   │▸mode    lp
+ tone     ◆ osc saw           │ in      ← tone.out
+ env      ◆ adsr              │ cutoff  ← envamt.out
+ envamt   ◆ scale lin         │ q       ← ·
+ amp      ◆ adsr              │ out     → vca.in
+▸vcf      ◆ svf lp            │
+ vca      ◆                   │
+────────────────────────────────────────────────────────────────────────────────
+ CABLES     vcf.in vcf.cutoff vcf.q vca.in
+ tone.out   ~      ·          ·     ·
+ envamt.out ·      ▪          ·     ·
+ vcf.out    ·      ·          ·     ~
+ Cutoff            ▪
+ Reso                         ▪
+ ◆ voice ● global ~ audio ▪ control ♪ notes Σ voice sum ✕ dropped
+ ● Cutoff 600 ███── ▲ Reso 0.7 █████── ■ Env 2400 ███──── ◆ Drive 2.5 ██────
+ tab pane · enter edit · a add · w wire · x remove · m knob · ? keys
+ ✓ patch bass ▸ acid-bass · 7 nodes · 10 cables · ? keys · esc home
+╭─ NOW ────────────────────────────────────────────────────────────────────────╮
+│ ›  describe a change — “double the melody an octave up”                      │
+╰─────────────────── night drive · $0 session · $0 today · opus-5.5 · gateway ─╯
+```
+
+Nodes run in signal order (`◆` per voice, `●` once), the selected node's ports sit beside them, and the cable matrix shows outputs down and inputs across. `a` adds a node, `w` wires, `x` removes, `m` maps a parameter to a knob, and each key runs a typed `patch …` command that echoes on the prompt (`patch add svf as vcf`, `patch wire tone.out vcf.in`, `patch macro …`). The first four macros are the four knobs. Eight patches ship built in: `acid-bass`, `supersaw-pad`, `fm-bell`, `pluck-ks` and `wobble` instruments, and `sidechain-pump`, `wide-crush` and `formant-vox` effects (`--fx <name>` edits an effect patch). `patch save <name> --user` keeps one in your library, `patch load github:<user>/<repo>/<name>` fetches one pinned by hash, and `patch show` prints the lines that rebuild a patch. The agent edits patches with the `patch_edit` tool, and `song.ts` builds them with `patch()` and Strudel-style signals (`mods: { cutoff: sine.range(300, 2400).slow(4) }`). See **Patches** in [DAWG.md](./DAWG.md#patches) and `/help sound`.
+
 ## Themes and accessibility
 
 `/theme default|high-contrast|mono` and `--theme <name>` (or `DAWG_THEME`) pick a theme. Semantic color tokens map to truecolor, 256, 16 or no color. `NO_COLOR` and `TERM=dumb` force monochrome. `/motion off`, `--reduce-motion` or `DAWG_REDUCE_MOTION=1` replace animations with static states in the same positions. Every color has a non-color cue as well: glyph density, `✓`/`✗`/`!` prefixes, the mode pill text and `▶`/`⏸`.

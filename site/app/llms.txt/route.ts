@@ -50,6 +50,7 @@ ${installLines}
 - Each new window claims the next unclaimed instrument, so N windows on an N-track song each play a different track.
 - Sessions name themselves from the music; /rename, /fork (numbered), /sessions and /resume.
 - Providers: \`dawg model key\` picks one: a Vercel AI Gateway key, OpenRouter (browser sign-in), or a Claude or ChatGPT/Codex subscription through xcb (https://xcb.sh). \`dawg model\` picks the model; the default is opus-5.5.
+- Patches (/patch): modular instruments and effects from nodes and cables, four macro knobs, eight built-ins, a user library and \`github:\` patches; \`patch()\` in song.ts.
 - TAPE (Ctrl-T): copy, move, loop and repeat ranges of bars.
 - Panes: one song in several terminals, one transport, a letter per pane.
 - Themes default, high-contrast and mono; reduced motion; NO_COLOR.
