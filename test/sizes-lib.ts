@@ -56,6 +56,8 @@ export const CHECK_SIZES: readonly Size[] = [
 ];
 export const CHECK_SCENARIOS = [
   "home-playing",
+  "play-mode",
+  "play-drums",
   "tape",
   "patch",
   "drawer-knobs",
@@ -90,6 +92,19 @@ const UP = `${ESC}[A`;
 export function focusShown(t: Pty): boolean {
   if (t.vt.cursorVisible) return true;
   return t.vt.cells.some((row) => row.some((cell) => cell.style.reverse));
+}
+
+/** Play mode's 18 note keys, each a cap of its own under the header. */
+const PLAY_KEYS = "AWSEDFTGYHUJKOLP;'";
+
+function everyPlayKey(text: string): boolean {
+  const top = text.split("\n").slice(1, 8).join("\n");
+  return [...PLAY_KEYS].every((letter) =>
+    new RegExp(
+      `(?<=^| )${letter.replace(/[;']/, "\\$&")}[•*]?(?= |$)`,
+      "m",
+    ).test(top),
+  );
 }
 
 async function ready(t: Pty): Promise<void> {
@@ -226,7 +241,21 @@ export const SCENARIOS: readonly Scenario[] = [
       await t.send("\u0010");
       await t.until(() => t.vt.text().includes("PLAY"), "play header");
     },
-    marker: (text) => text.includes("PLAY"),
+    // The on-screen keyboard keeps every note key at every usable size.
+    marker: (text) => text.includes("PLAY") && everyPlayKey(text),
+  },
+  {
+    name: "play-drums",
+    async open(t) {
+      await ready(t);
+      await t.send("instrument kit\r");
+      await t.settle("kit");
+      await t.send("\u0010");
+      await t.until(() => t.vt.text().includes("PLAY"), "play header");
+    },
+    argv: ["--track", "drums"],
+    marker: (text) =>
+      text.includes("PLAY") && everyPlayKey(text) && /\bkick\b/.test(text),
   },
   {
     name: "play-keys",
