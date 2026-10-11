@@ -297,6 +297,21 @@ describe("rename", () => {
       { name: "mine", nameSource: "auto" },
     );
     expect(next.status).toBe("applied");
+    // An auto-name computed from an older score revision is stale too.
+    const revision = next.record.revision;
+    const older = await updateSessionMeta(
+      paths,
+      { name: "older score" },
+      { name: "model name", nameSource: "auto", revision: revision - 1 },
+    );
+    expect(older.status).toBe("stale");
+    const current = await updateSessionMeta(
+      paths,
+      { name: "current score" },
+      { name: "model name", nameSource: "auto", revision },
+    );
+    expect(current.status).toBe("applied");
+    expect(current.record.meta.name).toBe("current score");
   });
 
   test("file sessions see renames from another window without polling delay", async () => {

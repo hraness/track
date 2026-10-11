@@ -47,8 +47,16 @@ export type MetaPatch = {
   heardLoop?: true;
 };
 
-/** A conditional write applies only when every given field still matches. */
-export type MetaExpect = { name?: string; nameSource?: NameSource };
+/**
+ * A conditional write applies only when every given field still matches.
+ * `revision` is the score revision the write was computed from: an auto-name
+ * is a function of the score, so a name for an older revision is stale.
+ */
+export type MetaExpect = {
+  name?: string;
+  nameSource?: NameSource;
+  revision?: number;
+};
 
 export class MetaValidationError extends Error {
   public constructor(message: string) {
@@ -174,11 +182,26 @@ export function parseMetaExpect(value: unknown): MetaExpect | undefined {
       throw new MetaValidationError("nameSource is invalid");
     expect.nameSource = raw.nameSource;
   }
+  if (raw.revision !== undefined) {
+    if (
+      typeof raw.revision !== "number" ||
+      !Number.isSafeInteger(raw.revision) ||
+      raw.revision < 0
+    )
+      throw new MetaValidationError("meta revision is invalid");
+    expect.revision = raw.revision;
+  }
   return expect;
 }
 
-export function metaMatches(meta: SessionMeta, expect?: MetaExpect): boolean {
+export function metaMatches(
+  meta: SessionMeta,
+  expect?: MetaExpect,
+  revision?: number,
+): boolean {
   if (!expect) return true;
+  if (expect.revision !== undefined && expect.revision !== revision)
+    return false;
   if (expect.name !== undefined && expect.name !== meta.name) return false;
   if (expect.nameSource !== undefined && expect.nameSource !== meta.nameSource)
     return false;

@@ -4382,12 +4382,22 @@ function adoptMeta(meta: typeof record.meta): void {
 }
 
 function makeNamer(): AutoNamer {
+  const target = namingTarget(
+    process.cwd(),
+    () => ({ port, record }),
+    (meta) => adoptMeta(meta),
+  );
   return new AutoNamer({
-    target: namingTarget(
-      process.cwd(),
-      () => ({ port, record }),
-      (meta) => adoptMeta(meta),
-    ),
+    // Name the committed score at its revision (never a staged preview or
+    // a turn's older snapshot): windows then agree on one name per revision,
+    // and a run that read an older revision is dropped as stale.
+    target: {
+      ...target,
+      current: () => ({
+        score: scoreFromJSON(record.composition),
+        revision: record.revision,
+      }),
+    },
     // DAWG_AI=0 keeps naming local; an offline provider falls back too.
     generator:
       process.env.DAWG_AI === "0"
