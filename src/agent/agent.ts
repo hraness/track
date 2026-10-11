@@ -36,6 +36,7 @@ import {
 } from "./tools.ts";
 import { PATCH_PROMPT } from "./patch-tools.ts";
 import { projectOutline, type ProjectOutline } from "./workspace.ts";
+import type { HistoryHandle } from "../history/types.ts";
 
 /** Hard ceilings for one agent turn. Callers may only tighten them. */
 export const AGENT_LIMITS = Object.freeze({
@@ -189,6 +190,11 @@ export type AgentHost = Readonly<{
    * the user's own command path. Absent keeps the JSON tool loop.
    */
   commands?: CommandHost;
+  /**
+   * Session history (`src/history/`): tool/turn rows, agent comments and
+   * history queries. Absent: history is not recorded for this host.
+   */
+  history?: HistoryHandle;
 }>;
 
 export type AgentTurnOptions = Readonly<{
