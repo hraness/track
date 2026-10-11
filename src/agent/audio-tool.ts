@@ -6,7 +6,12 @@
  * stays short because every token of it is paid on every turn.
  */
 import { systemRunner } from "../auth/runner.ts";
-import { parseChopArgs, parseChopOp } from "../audio/chop/args.ts";
+import {
+  CHOP_ARG_KINDS,
+  parseChopArgs,
+  parseChopOp,
+} from "../audio/chop/args.ts";
+import { CHOP_USAGE } from "../audio/chop/words.ts";
 import { ChopError } from "../audio/chop/pcm.ts";
 import { runChop, stemOf } from "../audio/chop/run.ts";
 import { slicesToSampler } from "../audio/chop/sampler.ts";
@@ -17,6 +22,7 @@ import {
 } from "../audio/chop/types.ts";
 import type { MediaRunContext } from "../media/types.ts";
 import { trackSlug } from "../../core/slug.ts";
+import { toolDetails } from "./tool-docs.ts";
 import type { AgentTool, ToolContext, ToolPlan } from "./tools.ts";
 
 const time = { type: ["number", "string"] };
@@ -26,11 +32,11 @@ const str = { type: "string" };
 export const AUDIO_TOOL: AgentTool = {
   name: "audio",
   description:
-    'Inspect and chop audio files; edits write new WAVs to tracks/<slug>/samples/. Read ops: info peaks onsets beats segments find audition. Times: 1.5, "350ms", "1:02", "bar:9.1", "-2s"; cuts snap to zero crossings. slice+track loads slices as sampler voices (+pattern notes). Other args (fromBpm toBpm preserve curve targetDb offset crossfadeMs format sampleRate gains reference thresholdDb): see guides/chop.md.',
+    'Inspect and chop audio files; edits write new WAVs to tracks/<slug>/samples/. Read ops: info peaks onsets beats segments find audition. Times: 1.5, "350ms", "1:02", "bar:9.1", "-2s"; cuts snap to zero crossings. op "help" lists every op and arg.',
   parameters: {
     type: "object",
     properties: {
-      op: { enum: CHOP_OPS },
+      op: { enum: [...CHOP_OPS, "help"] },
       input: str,
       output: str,
       from: time,
@@ -82,7 +88,29 @@ export function chopContent(result: ChopResult): Record<string, unknown> {
   return { ...rest, outputs: result.outputs };
 }
 
+/** `op: "help"`: every op's usage line and every arg's kind, no side effects. */
+export function audioHelp(): Record<string, unknown> {
+  return {
+    details: toolDetails("audio"),
+    ops: Object.values(CHOP_USAGE).map((line) => line.replace(/\s{2,}/, " · ")),
+    args: Object.fromEntries(
+      Object.entries(CHOP_ARG_KINDS).map(([name, kind]) => [
+        name,
+        Array.isArray(kind) ? kind.join("|") : kind,
+      ]),
+    ),
+  };
+}
+
 function planAudio(raw: Record<string, unknown>, tool: ToolContext): ToolPlan {
+  if (raw.op === "help") {
+    const content = JSON.stringify(audioHelp());
+    return {
+      kind: "action",
+      summary: "audio help",
+      run: async () => ({ content, summary: "audio help" }),
+    };
+  }
   let op;
   let args;
   try {

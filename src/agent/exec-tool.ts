@@ -3,37 +3,33 @@
  * shell, cwd = project (`src/media/exec.ts`, policy in `exec-policy.ts`).
  * `log` + `offset` page through a previous run's saved output instead.
  *
- * Settings seam (lane agentcore owns `src/agent/settings.ts`): until it
- * lands, `readExecSettings` reads `shell` and `readRoots` from
- * `.dawg/agent.json`, which only the human edits (the agent's write scope
- * refuses `.dawg/`).
+ * Settings: `shell` and `readRoots` come from `.dawg/agent.json` through
+ * `parseAgentSettings` (`src/agent/settings.ts`); only the human changes them
+ * (`/agent`, its Ctrl-K rows, `dawg agent`), and the agent's write scope
+ * refuses `.dawg/`.
  */
-import { readFileSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { readFileSync, statSync } from "node:fs";
 import { EXEC_LIMITS, ExecError, readExecLog, runExec } from "../media/exec.ts";
+import {
+  DEFAULT_AGENT_SETTINGS,
+  agentSettingsPath,
+  parseAgentSettings,
+  type AgentSettings,
+} from "./settings.ts";
 import type { AgentTool, ToolPlan } from "./tools.ts";
 
-export type ExecSettings = Readonly<{
-  shell: boolean;
-  readRoots: readonly string[];
-}>;
+export type ExecSettings = Pick<AgentSettings, "shell" | "readRoots">;
 
-/** `.dawg/agent.json` `{ shell, readRoots }`; anything malformed reads as off. */
+/** `.dawg/agent.json` read synchronously; anything malformed reads as off. */
 export function readExecSettings(root: string): ExecSettings {
   try {
-    const raw = JSON.parse(
-      readFileSync(join(root, ".dawg", "agent.json"), "utf8"),
-    ) as unknown;
-    if (!raw || typeof raw !== "object") return { shell: false, readRoots: [] };
-    const record = raw as Record<string, unknown>;
-    const readRoots = Array.isArray(record.readRoots)
-      ? record.readRoots
-          .filter((r): r is string => typeof r === "string" && r.length > 0)
-          .map((r) => (isAbsolute(r) ? r : resolve(root, r)))
-      : [];
-    return { shell: record.shell === true, readRoots };
+    const path = agentSettingsPath(root);
+    if (statSync(path).size > 64 * 1024) return DEFAULT_AGENT_SETTINGS;
+    return parseAgentSettings(
+      JSON.parse(readFileSync(path, "utf8")) as unknown,
+    );
   } catch {
-    return { shell: false, readRoots: [] };
+    return DEFAULT_AGENT_SETTINGS;
   }
 }
 

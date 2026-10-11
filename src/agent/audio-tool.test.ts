@@ -172,3 +172,19 @@ describe("audio agent tool", () => {
     ).toThrow(/not a sampler/);
   });
 });
+
+describe("audio help", () => {
+  test("op help lists every op and arg without touching files", async () => {
+    const plan = AUDIO_TOOL.plan({ op: "help" }, context());
+    expect(plan.kind).toBe("action");
+    if (plan.kind !== "action") return;
+    const result = await plan.run({} as never);
+    const help = JSON.parse(String(result.content)) as {
+      ops: string[];
+      args: Record<string, string>;
+    };
+    expect(help.ops.length).toBeGreaterThan(20);
+    expect(help.ops.some((line) => line.startsWith("cut "))).toBe(true);
+    expect(help.args.snap).toContain("zero");
+  });
+});

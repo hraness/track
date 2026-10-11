@@ -13,6 +13,8 @@ import { systemRunner, type CommandRunner } from "../../auth/runner.ts";
 import { encodeWav24, makePcm, type Pcm } from "./pcm.ts";
 import { resolveOutput, runChop } from "./run.ts";
 import type { ChopContext, ChopHistory } from "./types.ts";
+import { closeHistory, openHistory } from "../../history/open.ts";
+import { newId } from "../../../core/ids.ts";
 
 const SR = 44_100;
 
@@ -268,4 +270,34 @@ describe("external backends (skipped when not installed)", () => {
       expect(result.outputs[0]!.seconds).toBeCloseTo(4, 0);
     },
   );
+});
+
+describe("chop rows in the history store", () => {
+  test("an edit lands as an asset row queryable by track", async () => {
+    const db = openHistory(root);
+    if (!db) return; // DAWG_HISTORY=off or no SQLite: nothing to check.
+    try {
+      const history: ChopHistory = {
+        append: (event) => {
+          const id = event.id ?? newId("ev");
+          const row = db.append({ ...event, id, sessionId: "s1", atRev: 0 });
+          return { id, done: Promise.resolve(row) };
+        },
+      };
+      const result = await runChop(
+        "reverse",
+        { input: "loop.wav", track: "drums" },
+        { ...ctx, history },
+      );
+      const rows = db.query({ sessionId: "s1", track: "drums" }).rows;
+      expect(rows.length).toBe(1);
+      expect(rows[0]!.kind).toBe("asset");
+      expect(rows[0]!.sub).toBe("audio.reverse");
+      expect(JSON.stringify(rows[0]!.payload)).toContain(
+        result.outputs[0]!.sha256,
+      );
+    } finally {
+      closeHistory(root);
+    }
+  });
 });

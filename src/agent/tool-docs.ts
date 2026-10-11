@@ -227,6 +227,16 @@ export const AGENT_TOOL_DOCS: Readonly<Record<string, AgentToolDoc>> =
         ],
       },
     },
+    audio: {
+      details:
+        'Inspect and chop audio files in the project (or a read root); every edit writes a new 24-bit WAV under tracks/<slug>/samples/ (or output) and never touches the input. Read ops: info peaks onsets beats segments find audition. Edit ops: cut slice trim pad shift loop concat mix stretch pitch fade normalize gain reverse filter convert resample split. Times take seconds (1.5), "350ms", "1:02", "bar:9.1" or negative from the end ("-2s"); cuts snap to the nearest zero crossing by default (snap zero|onset|beat|none). slice with track loads each slice as a sampler voice and, with pattern, writes notes that replay them. Other args: fromBpm toBpm (stretch by tempo), preserve formant|none, curve (fades), targetDb and rms (normalize), offset and crossfadeMs (loop), thresholdDb minMs sensitivity (analysis), q, format, sampleRate, channels, gains, offsets, reference. op "help" returns every usage line and arg kind; guides/chop.md has worked examples.',
+      example: {
+        op: "cut",
+        input: "tracks/drums/downloads/break.wav",
+        from: "1.2s",
+        to: "3.4s",
+      },
+    },
     preview_sound: {
       details:
         "Hear a track, or a candidate sound change, without committing it. changes: sound tool calls to try ({tool, args} for set_fx, set_rig, set_synth, set_string, set_modal, set_wind, set_wavetable, set_instrument, set_sample, fit_sample, set_mix, set_automation, set_drum_kit, use_sound), applied to a copy. Renders the track's notes over up to 4 bars (or a short phrase by role when it has none), solo or in context, and returns RMS/peak dBFS, spectral centroid and a one-line description for the current and the candidate sound. When the user's window is open it plays the snippet once. Then commit with the normal tools if it sounds right.",
