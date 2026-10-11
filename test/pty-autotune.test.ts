@@ -3,103 +3,51 @@
  * `/vocal autotune` alias and Sound > Voice > Autotune in the ctrl-k menu.
  * Same PTY setup as test/pty.test.ts (Bun.spawn with a terminal).
  */
-import { afterAll, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { VirtualTerminal } from "./vt.ts";
-
-const MAIN = resolve(import.meta.dir, "../src/main.ts");
-const supported =
-  process.platform !== "win32" &&
-  typeof (Bun as unknown as { Terminal?: unknown }).Terminal === "function";
-
-const dirs: string[] = [];
-afterAll(async () => {
-  await Promise.all(
-    dirs.map((dir) => rm(dir, { recursive: true, force: true })),
-  );
-});
+import { expect, test } from "bun:test";
+import { launch, supported } from "./pty-harness.ts";
 
 test.skipIf(!supported)(
   "real PTY: /autotune, /tune hint, /vocal autotune, Sound > Voice > Autotune",
   async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "dawg-pty-autotune-"));
-    dirs.push(cwd);
-    const vt = new VirtualTerminal(110, 34);
-    const decoder = new TextDecoder();
-    const proc = Bun.spawn([process.execPath, MAIN, "--track", "vox"], {
-      cwd,
-      env: {
-        PATH: process.env.PATH ?? "",
-        HOME: cwd,
-        TERM: "xterm-256color",
-        DAWG_DAEMON: "0",
-        DAWG_AUDIO: "0",
-        DAWG_AI: "0",
-        DAWG_CREDENTIAL_STORE: "file",
-        DAWG_CONFIG_DIR: join(cwd, ".config", "dawg"),
-      },
-      terminal: {
-        cols: 110,
-        rows: 34,
-        data(_terminal: unknown, data: Uint8Array) {
-          vt.writeFrames(decoder.decode(data, { stream: true }));
-        },
-      },
-    } as Parameters<typeof Bun.spawn>[1]);
-    const terminal = (
-      proc as unknown as { terminal: { write(d: string): void; close(): void } }
-    ).terminal;
-    const until = async (predicate: () => boolean, label: string) => {
-      const deadline = Date.now() + 5000;
-      while (!predicate()) {
-        if (Date.now() > deadline)
-          throw new Error(`timed out waiting for ${label}\n${vt.text()}`);
-        await Bun.sleep(20);
-      }
-    };
-    const send = async (data: string) => {
-      terminal.write(data);
-      await Bun.sleep(60);
-    };
+    // No provider: the prompt is commands only.
+    const t = await launch(110, 34, { DAWG_AI: "0", AI_GATEWAY_API_KEY: "" }, [
+      "--track",
+      "vox",
+    ]);
+    const vt = t.vt;
+    const until = t.until;
     try {
       await until(() => vt.text().includes("commands only"), "ready");
-      await send("/autotune hard\r");
-      await until(() => vt.text().includes("autotune · hard"), "autotune set");
-      await send("/tune hard\r");
-      await until(
-        () => vt.text().includes("for pitch correction use /autotune hard"),
-        "tune hint",
-      );
-      await send("/vocal autotune gentle speed 60\r");
-      await until(
-        () => vt.text().includes("autotune · gentle · speed 60 ms"),
-        "vocal alias",
-      );
-      await send("/autotne\r");
-      await until(
-        () => vt.text().includes("did you mean /autotune"),
-        "typo hint",
-      );
-      await send("/menu voice\r");
-      await until(() => vt.text().includes("autotune"), "Voice > autotune");
+      // Each line settles before its receipt is read: a receipt's words can
+      // already be on screen from the line before.
+      await t.type("/autotune hard\r", "autotune set");
+      expect(vt.text()).toContain("autotune · hard");
+      await t.type("/tune hard\r", "tune hint");
+      expect(vt.text()).toContain("for pitch correction use /autotune hard");
+      await t.type("/vocal autotune gentle speed 60\r", "vocal alias");
+      expect(vt.text()).toContain("autotune · gentle · speed 60 ms");
+      await t.type("/autotne\r", "typo hint");
+      expect(vt.text()).toContain("did you mean /autotune");
+      // "autotune" is on screen already: wait for the menu itself.
+      await t.type("/menu voice\r", "Voice menu");
+      expect(t.state()?.screen).toBe("menu");
+      expect(vt.text()).toContain("autotune");
       // Clips, lyrics and pitch sit above it: filter to autotune, then open.
-      await send("/autotune");
-      await send("\r");
+      await t.send("/autotune");
+      await t.send("\r");
       await until(
         () => vt.text().includes("preset") && vt.text().includes("flex"),
         "autotune rows",
       );
       expect(vt.text()).toContain("gentle");
-      await send("\u001b");
-      await send("\u001b");
-      await send("\u001b");
+      await t.send("\u001b");
+      await t.send("\u001b");
+      await t.send("\u001b");
     } finally {
-      terminal.write("\u0003");
-      await Promise.race([proc.exited, Bun.sleep(5000)]);
-      proc.kill();
-      terminal.close();
+      t.terminal.write("\u0003");
+      await Promise.race([t.proc.exited, Bun.sleep(5000)]);
+      t.proc.kill();
+      t.terminal.close();
     }
   },
   25_000,

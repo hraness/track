@@ -184,15 +184,31 @@ async function converged(ws: readonly Window[]): Promise<Status> {
     "same revision in every window",
     () => screens(ws),
   );
-  const statuses: Status[] = [];
-  for (const w of ws) statuses.push(await status(w));
+  // The session name changes without a revision (the auto-namer renames on
+  // a timer, and the rename reaches each window on its own), so it can land
+  // between two windows' /status reads. Read until one snapshot agrees: every
+  // window's /status names the same session and every footer, read after,
+  // shows it. A real divergence still fails at the deadline.
+  let statuses: Status[] = [];
+  let footers: string[] = [];
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    statuses = [];
+    for (const w of ws) statuses.push(await status(w));
+    footers = ws.map(footer);
+    const name = statuses[0]!.name;
+    const agreed =
+      statuses.every((s) => s.name === name) &&
+      footers.every((f) => f.includes(name));
+    if (agreed || Date.now() > deadline) break;
+  }
   for (const s of statuses) {
     expect(s.mode).toBe("shared via dawgd");
     expect(s.revision).toBe(statuses[0]!.revision);
     expect(s.digest).toBe(statuses[0]!.digest);
     expect(s.name).toBe(statuses[0]!.name);
   }
-  for (const w of ws) expect(footer(w)).toContain(statuses[0]!.name);
+  for (const f of footers) expect(f).toContain(statuses[0]!.name);
   return statuses[0]!;
 }
 
