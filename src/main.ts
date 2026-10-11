@@ -121,6 +121,24 @@ import {
   type PatchEnv,
 } from "./commands/patch.ts";
 import {
+  applyPresetCommand,
+  listKind,
+  parsePresetCommand,
+  steppedPreset,
+  trackPreset,
+  usePreset,
+  type PresetCommand,
+  type PresetListKind,
+} from "./commands/preset.ts";
+import { presetByName } from "../core/presets/index.ts";
+import { presetPhrase, presetScore } from "./audio/preset-check.ts";
+import { loadFavorites, saveFavorites } from "./audio/preset-favorites.ts";
+import {
+  categoryPicker,
+  presetPicker,
+  type BrowserOptions,
+} from "./tui/preset-browser.ts";
+import {
   isPatchSource,
   loadPatchSource,
   readUserPatch,
@@ -911,7 +929,18 @@ let monitorEngine: AudioEngine | undefined;
 /** The audition loop and staged edits (src/tui/audition.ts), made lazily. */
 let auditionLoop: Audition | undefined;
 /** Pickers that host the audition loop (Space, `a`, `c`, hover). */
-const AUDITION_PICKERS = new Set(["kit", "pattern", "try", "patch-add"]);
+const AUDITION_PICKERS = new Set([
+  "kit",
+  "pattern",
+  "try",
+  "patch-add",
+  "presets",
+  "preset",
+]);
+/** Starred presets, read once from disk (src/audio/preset-favorites.ts). */
+let presetFavorites: Set<string> | undefined;
+/** The preset the browser last previewed (one phrase per move). */
+let presetPreviewed: string | undefined;
 const TRY_USAGE =
   "/try <sound command> · /try fx reverb mix 0.6 · /try agent on|off";
 /** Whether the agent's preview_sound plays its snippet in this window. */
@@ -2290,6 +2319,24 @@ async function runInteractive(): Promise<void> {
                   .finally(() => tick(true)),
               );
             }
+          } else if (input.type === "pick-key") {
+            void presetPickerKey(input.picker, input.key, input.value).finally(
+              () => tick(true),
+            );
+          } else if (
+            input.type === "pick-move" &&
+            (input.picker === "preset" || input.picker === "presets") &&
+            !auditionLoop?.looping
+          ) {
+            previewPreset(input.value);
+          } else if (
+            input.type === "pick" &&
+            input.picker === "presets" &&
+            input.value.startsWith("/presets ")
+          ) {
+            // A category opens its list; nothing is kept yet.
+            const list = listKind(input.value.slice(9));
+            if (list) openPresetBrowser(list);
           } else if (input.type === "pick-move") {
             // Moving through a list auditions the row under the cursor on
             // the loop; with the loop off, /pattern plays one bar of it.
@@ -2984,6 +3031,8 @@ async function submit(prompt: string): Promise<string | Receipt> {
   if (patchError) return fail(patchError);
   const patchCommand = parsePatchCommand(command);
   if (patchCommand) return runPatchCommand(patchCommand);
+  const presetCommand = parsePresetCommand(command);
+  if (presetCommand) return runPresetCommand(presetCommand);
   const fx = parseFxCommand(command);
   if (fx) {
     if (fx.type !== "fx-list") await materializeDraft();
@@ -4368,6 +4417,198 @@ function previewPattern(name: string | undefined): void {
     .catch(() => undefined);
 }
 
+async function favorites(): Promise<Set<string>> {
+  return (presetFavorites ??= await loadFavorites());
+}
+
+function browserOptions(current = trackPreset(focusedTrack())): BrowserOptions {
+  const track = focusedTrack();
+  return {
+    favorites: presetFavorites ?? new Set(),
+    current,
+    drums: track ? isDrumInstrumentTrack(track) : false,
+    ascii: !tui.ui.capabilities.unicode,
+  };
+}
+
+function focusedTrack() {
+  return score.tracks.find((track) => track.id === requestedTrack);
+}
+
+/** `preset …` (core/presets): load, list, describe, star, browse. */
+async function runPresetCommand(command: PresetCommand): Promise<Receipt> {
+  const favs = await favorites();
+  if (command.type === "preset-browse") {
+    openPresetBrowser(command.list);
+    return note(
+      command.list
+        ? `presets › ${command.list} · ↑↓ hear · enter keeps · esc reverts`
+        : "presets · enter opens a category · type to search all",
+    );
+  }
+  if (command.type === "preset-use" || command.type === "preset-step")
+    await materializeDraft();
+  const result = applyPresetCommand(score, requestedTrack, command, favs);
+  if (result.favorites) {
+    presetFavorites = new Set(result.favorites);
+    await saveFavorites(presetFavorites).catch(() => undefined);
+  }
+  if (result.next && result.kind)
+    await commitScore(result.next, result.kind, result.payload);
+  if (result.read && result.ok) {
+    const lines = result.message.split("\n");
+    if (lines.length > 1) tui.openText("presets", lines);
+    return note(lines[0]!);
+  }
+  return result.ok
+    ? result.next
+      ? ok(result.message)
+      : note(result.message)
+    : fail(result.message);
+}
+
+/** The preset browser: categories, or one list (`/presets bass`). */
+function openPresetBrowser(list?: PresetListKind, like?: string): void {
+  const options = browserOptions(
+    like ? (presetByName(like) ?? trackPreset(focusedTrack())) : undefined,
+  );
+  const spec = list
+    ? presetPicker(
+        list,
+        list === "similar" && !like ? browserOptions() : options,
+      )
+    : categoryPicker(browserOptions());
+  if (!spec) {
+    tui.activity.pushCard(
+      list === "favorites"
+        ? "starred · none yet · * stars a preset in the browser"
+        : `presets · ${list} is empty · /presets`,
+      { tone: "info" },
+    );
+    if (list) openPresetBrowser();
+    return;
+  }
+  presetPreviewed = undefined;
+  tui.openPicker(spec);
+}
+
+/** A browser key: * stars, → similar or open, ← back to categories. */
+async function presetPickerKey(
+  picker: string,
+  key: string,
+  value: string,
+): Promise<void> {
+  const name = value.startsWith("preset ") ? value.slice(7) : undefined;
+  if (key === "*" && name) {
+    const favs = await favorites();
+    const result = applyPresetCommand(
+      score,
+      requestedTrack,
+      {
+        type: "preset-fav",
+        name,
+      },
+      favs,
+    );
+    if (result.favorites) {
+      presetFavorites = new Set(result.favorites);
+      await saveFavorites(presetFavorites).catch(() => undefined);
+    }
+    // Redraw the rows with the star, keeping the list and the cursor.
+    const open = tui.ui.picker;
+    if (open?.id === picker) {
+      const kind =
+        picker === "presets" ? undefined : (open.title.split("› ")[1] ?? "");
+      const at = open.index;
+      const query = open.query;
+      const listName = kind?.startsWith("like ")
+        ? "similar"
+        : kind === "starred"
+          ? "favorites"
+          : kind;
+      const spec = listName
+        ? presetPicker(
+            listKind(listName) ?? "all",
+            browserOptions(
+              kind?.startsWith("like ")
+                ? presetByName(kind.slice(5))
+                : undefined,
+            ),
+          )
+        : categoryPicker(browserOptions());
+      if (spec) {
+        tui.openPicker({ ...spec, index: at });
+        if (query) {
+          const reopened = tui.ui.picker;
+          if (reopened) reopened.query = query;
+        }
+      }
+    }
+    tui.activity.pushCard(result.message, { tone: "info" });
+    return;
+  }
+  if (key === "left") {
+    if (picker === "preset") openPresetBrowser();
+    return;
+  }
+  if (key === "right") {
+    if (name) openPresetBrowser("similar", name);
+    else if (value.startsWith("/presets ")) {
+      const list = listKind(value.slice(9));
+      if (list) openPresetBrowser(list);
+    }
+  }
+}
+
+/**
+ * Moving in the browser plays the preset once: one bar of the focused
+ * track's own notes through it, else its standard phrase (the quality
+ * check's) cut to a few seconds. With the loop on, the row is heard on the
+ * loop instead (hoverItem), as in every auditioning list.
+ */
+function previewPreset(value: string): void {
+  if (!value.startsWith("preset ")) return;
+  const name = value.slice(7);
+  if (name === presetPreviewed) return;
+  presetPreviewed = name;
+  if (clock.playing) return;
+  const preset = presetByName(name);
+  const engine = liveEngine();
+  if (!preset || !engine?.canMonitor) return;
+  const used = usePreset(score, requestedTrack, preset);
+  let pcm = used.next
+    ? renderAudition({
+        score: used.next,
+        trackId: requestedTrack,
+        bars: 1,
+        sampleRate: engine.sampleRate,
+        ...(liveSampleBank ? { samples: liveSampleBank } : {}),
+      })
+    : undefined;
+  if (!pcm && preset.patch) {
+    const phrase = presetPhrase(preset).filter((n) => n.start < 3.8);
+    pcm = renderAudition({
+      score: presetScore(preset, phrase, 4),
+      trackId: "t",
+      bars: 2,
+      sampleRate: engine.sampleRate,
+    });
+  }
+  if (!pcm) return;
+  void engine
+    .monitor(true)
+    .then(() => engine.noteOn(AUDITION_VOICE, pcm))
+    .catch(() => undefined);
+}
+
+/** `,` / `.` in play mode: the neighbouring preset, as `preset prev|next`. */
+function presetStepFromPlay(step: 1 | -1): string | undefined {
+  const preset = steppedPreset(focusedTrack(), step);
+  if (!preset) return "no presets to step through";
+  runTyped([`preset ${preset.name}`]);
+  return `preset ${preset.name} · ${preset.category} · , . step`;
+}
+
 /** `/kit` with no name: one picker with the synth kits and the sample kits. */
 function openKitPicker(): Receipt {
   const current = score.tracks.find((track) => track.id === requestedTrack);
@@ -5017,9 +5258,11 @@ function keysScreen(): readonly KeySection[] | undefined {
   if (overlay === "picker")
     return tui.pickerTyping
       ? undefined
-      : AUDITION_PICKERS.has(tui.ui.picker?.id ?? "")
-        ? KEYS.audition
-        : KEYS.list;
+      : tui.ui.picker?.id === "preset" || tui.ui.picker?.id === "presets"
+        ? KEYS.presets
+        : AUDITION_PICKERS.has(tui.ui.picker?.id ?? "")
+          ? KEYS.audition
+          : KEYS.list;
   if (overlay === "text") return KEYS.text;
   if (overlay === "log") return KEYS.log;
   if (overlay === "guide") return tui.guideTyping ? undefined : KEYS.guide;
@@ -6466,6 +6709,7 @@ function playHost() {
         });
     },
     newNoteId: () => newId("n"),
+    presetStep: presetStepFromPlay,
   };
 }
 

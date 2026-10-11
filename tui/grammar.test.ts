@@ -87,7 +87,13 @@ describe("? panels", () => {
   }
 
   test("enter opens or confirms on every list screen", () => {
-    for (const screen of ["menu", "audition", "preview", "fader"] as const) {
+    for (const screen of [
+      "menu",
+      "audition",
+      "presets",
+      "preview",
+      "fader",
+    ] as const) {
       const enter = KEYS[screen]
         .flatMap((section) => section.rows)
         .find(([label]) => keysOf(label).includes("enter"));

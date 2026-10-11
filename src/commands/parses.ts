@@ -18,6 +18,7 @@ import { parseExpressionCommand } from "./expression.ts";
 import { parseFitCommand } from "./fit.ts";
 import { parseFormantCommand, parseVowelCommand } from "./formant.ts";
 import { parseFxCommand } from "./fx.ts";
+import { parsePresetCommand } from "./preset.ts";
 import { parsePatchCommand } from "./patch.ts";
 import { parseGranularCommand } from "./granular.ts";
 import { parseKeysCommand, parseRecordCommand } from "./keys.ts";
@@ -97,6 +98,7 @@ function parsers(score: TrackScore): ((text: string) => unknown)[] {
     parseEditCommand,
     parseRhythmCommand,
     parsePatchCommand,
+    parsePresetCommand,
     parseFxCommand,
     parseSynthCommand,
     parseStringCommand,

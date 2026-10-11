@@ -142,6 +142,11 @@ export interface PlayHost {
   stopTransport(): Promise<void>;
   card(text: string, tone: "info" | "success" | "warning" | "error"): void;
   /**
+   * `,` / `.`: load the previous / next preset of the track's category
+   * (`preset prev|next`); returns the status line, or undefined.
+   */
+  presetStep?(step: 1 | -1): string | undefined;
+  /**
    * Another pane recording on `trackId` (§12.4): its name (`pane B`), else
    * undefined. A replace pass refuses while one is, since it would erase
    * the other pane's notes.
@@ -677,6 +682,11 @@ export class PlaySession {
     }
     if (command === "degrees") {
       this.status = this.toggleDegrees();
+      return { type: "handled" };
+    }
+    if (command === "preset-prev" || command === "preset-next") {
+      const status = this.host.presetStep?.(command === "preset-next" ? 1 : -1);
+      if (status) this.status = status;
       return { type: "handled" };
     }
     return { type: "command", command };

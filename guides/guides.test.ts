@@ -163,6 +163,7 @@ const MENU: MenuNode = {
     ...leaves(
       "instrument",
       "preset",
+      "preset library",
       "advanced",
       "synth filter",
       "keys",

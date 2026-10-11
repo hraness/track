@@ -67,6 +67,16 @@ export const FEATURES: readonly Feature[] = [
     tools: ["set_synth"],
     sdk: ["track.synth"],
   },
+  // The preset library (core/presets): typed `preset <name>` and the
+  // `/presets` browser, Ctrl-K › Sound › preset library, the agent's
+  // preset_catalog/use_preset, and a loaded preset prints as a patch.
+  {
+    feature: "preset library",
+    command: "preset warm-pad",
+    menu: "Sound › preset library",
+    tools: ["preset_catalog", "use_preset"],
+    sdk: ["sdk:patch", "track.instrument"],
+  },
   {
     feature: "effects",
     command: "fx reverb on",
@@ -486,6 +496,7 @@ describe("four doors to every feature", () => {
       "tracks",
       "instruments",
       "presets",
+      "preset library",
       "effects",
       "voice",
       "rhythm",
