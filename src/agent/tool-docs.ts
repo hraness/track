@@ -209,6 +209,24 @@ export const AGENT_TOOL_DOCS: Readonly<Record<string, AgentToolDoc>> =
       details:
         "Pitch correction on a track's audio (its clips and sampler voices), gentle to hard. preset: hard (instant stepped notes), robot (stepped on every tuning step), warble (hard with synthetic vibrato), trap (fast, glossy), pop (default: polished but sung), natural, gentle (keeps vibrato), guided (follows guide notes), locked (follows notes exactly). params override one field, null returns it to the preset: to scale|chromatic|chord|notes (scale: key or the song key and tuning, so maqam, raga and n-EDO work; chromatic without a key; chord: the chord timeline; notes: `from` or the track's own notes), from <trackId>, key (e.g. 'D bayati'), speed ms (0 instant), relax 0..1, hold ms, flex 0..100 (Antares-style: bends wider than flex cents pass), glide ms (0..500), amount 0..1, vib Hz, vibmod semitones, center 0..1, drift 0..1, voice auto|bass|tenor|alto|soprano. reset drops overrides; off removes it. Unsure of the key? analyze_pitch first. Never fetch an artist's vocal to imitate.",
     },
+    dispatch: {
+      details:
+        "Fan independent work out to subagents that run in parallel on the same provider (the fast model unless model is set). Give each task its own tracks: two tasks naming the same track, a .dawg/ glob, or two global tasks are refused before anything runs. tracks [] means the task may only add new tracks. bars A-B limits its note edits; files adds writable project globs on top of its tracks' tracks/<slug>/**; global lets one task change tempo, meter, form, master or tuning. Each child has 6 steps and 16 tool calls, no transport, no nested dispatch and no trusted exec; Esc cancels them all and the whole dispatch stops after 5 minutes. Every child edit is its own revision, attributed [task-id], and undoable on its own. When another edit touched the same notes or track settings first, the child's edit is not forced: the task reports conflict with the reason. Use it for 2-4 genuinely separate parts (drums, bass, keys); do sequential or dependent edits yourself.",
+      example: {
+        tasks: [
+          {
+            id: "drums",
+            prompt: "a half-time groove, bars 1-8",
+            tracks: ["drums"],
+          },
+          {
+            id: "bass",
+            prompt: "a root-fifth bass under the chords",
+            tracks: ["bass"],
+          },
+        ],
+      },
+    },
     preview_sound: {
       details:
         "Hear a track, or a candidate sound change, without committing it. changes: sound tool calls to try ({tool, args} for set_fx, set_rig, set_synth, set_string, set_modal, set_wind, set_wavetable, set_instrument, set_sample, fit_sample, set_mix, set_automation, set_drum_kit, use_sound), applied to a copy. Renders the track's notes over up to 4 bars (or a short phrase by role when it has none), solo or in context, and returns RMS/peak dBFS, spectral centroid and a one-line description for the current and the candidate sound. When the user's window is open it plays the snippet once. Then commit with the normal tools if it sounds right.",

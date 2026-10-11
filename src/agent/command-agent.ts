@@ -16,6 +16,7 @@ import { MEDIA_TOOLS } from "../media/tools.ts";
 import {
   AGENT_LIMITS,
   MEDIA_PROMPT,
+  DISPATCH_PROMPT,
   WORKSPACE_PROMPT,
   classifyAgentError,
   executeCall,
@@ -98,6 +99,7 @@ export const COMMAND_AGENT_PROMPT = [
   "Use the tools only for what commands cannot do: project files, the web, media, previewing and measuring.",
   WORKSPACE_PROMPT,
   MEDIA_PROMPT,
+  DISPATCH_PROMPT,
 ].join(" ");
 
 /** The system prompt with the command reference, built once. */
@@ -143,6 +145,7 @@ export async function runCommandAgentTurn(
   const offered = chatTools(
     allTools.filter((tool) => COMMAND_MODE_TOOL_NAMES.has(tool.name)),
   );
+  const turnId = options.turnId ?? newId("turn");
   const newNoteId =
     options.newNoteId ??
     ((trackId: string, _revision: number, _index: number) => newId(trackId));
@@ -322,11 +325,13 @@ export async function runCommandAgentTurn(
           toolCalls += 1;
           emit({ type: "tool-start", callId: call.id, name: call.name, step });
           const outcome = await executeCall(call, {
+            turnId,
             tools: allTools,
             host: options.host,
             newNoteId,
             signal,
             suspendTimeout: deadline.suspend,
+            emit,
             onProgress: (line) =>
               emit({
                 type: "tool-progress",

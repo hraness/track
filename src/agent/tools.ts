@@ -97,6 +97,8 @@ import {
 } from "../commands/fx.ts";
 import type { ChatTool } from "./gateway.ts";
 import { MEDIA_TOOLS } from "../media/tools.ts";
+import { DISPATCH_TOOLS } from "./dispatch-tool.ts";
+import type { SubagentTask } from "./subagent-tasks.ts";
 import { PACK_TOOLS, PackToolError } from "./pack-tools.ts";
 import {
   PreviewToolError,
@@ -202,10 +204,21 @@ export type ToolPlan =
       kind: "media";
       summary: string;
       run: (context: MediaRunContext) => Promise<MediaResult>;
+    }>
+  /** Parallel subagents; the turn loop runs them through `runSubagents`. */
+  | Readonly<{
+      kind: "dispatch";
+      tasks: readonly SubagentTask[];
+      model?: string;
+      summary: string;
     }>;
 
 /** The project directory the workspace tools operate in. */
-export type WorkspaceHost = Readonly<{ root: string }>;
+export type WorkspaceHost = Readonly<{
+  root: string;
+  /** A dispatch subagent's only writable globs (see WorkspaceScope). */
+  writeGlobs?: readonly string[];
+}>;
 
 /** Injection points for the web tools; defaults are the real network. */
 export type WebHost = Readonly<{
@@ -2049,6 +2062,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   ...RESAMPLE_TOOLS,
   // 0.7 Voice: one array per lane in voice-tools.ts.
   ...VOICE_TOOLS,
+  ...DISPATCH_TOOLS,
   // Looks tools up at call time, so it can plan any of the above.
   previewSoundTool((name) => findAgentTool(name)),
 ] satisfies AgentTool[]);
@@ -2102,7 +2116,13 @@ function workspaceScope(
 ): WorkspaceScope {
   if (!action.workspace)
     throw new WorkspaceError("file tools are unavailable in this session");
-  return { root: action.workspace.root, trackSlug: focusedTrackSlug(context) };
+  return {
+    root: action.workspace.root,
+    trackSlug: focusedTrackSlug(context),
+    ...(action.workspace.writeGlobs
+      ? { writeGlobs: action.workspace.writeGlobs }
+      : {}),
+  };
 }
 
 function pathSchema(description: string) {

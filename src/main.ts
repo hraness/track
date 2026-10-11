@@ -295,6 +295,7 @@ import {
   runProviderTurn,
   selectProvider,
   type ProviderSelection,
+  subagentHostFor,
 } from "./agent/provider.ts";
 import {
   MODEL_CATALOG,
@@ -6977,6 +6978,11 @@ function agentHost(
     media: mediaServices(),
     history: history.handle,
     preview: agentPreviewHost(),
+    // dispatch children run on this turn's provider, scoped and attributed.
+    ...(() => {
+      const subagents = subagentHostFor(selection);
+      return subagents ? { subagents } : {};
+    })(),
     async commit(change) {
       // dawgd rebases operation intents onto newer revisions when nothing
       // they touch changed; the file port keeps the strict base check.

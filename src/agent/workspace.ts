@@ -51,7 +51,30 @@ export type WorkspaceScope = Readonly<{
   root: string;
   /** Slug of the focused track; its `tracks/<slug>/` directory is writable. */
   trackSlug: string;
+  /**
+   * When set (a dispatch subagent), the only writable paths: project-relative
+   * globs (`**` any depth, `*` within a segment) instead of the defaults.
+   */
+  writeGlobs?: readonly string[];
 }>;
+
+/** Glob match for write scopes: `**` any depth, `*` and `?` within a segment. */
+export function globMatch(glob: string, path: string): boolean {
+  let pattern = "";
+  for (let index = 0; index < glob.length; index++) {
+    const char = glob[index]!;
+    if (char === "*" && glob[index + 1] === "*") {
+      index++;
+      if (glob[index + 1] === "/") {
+        pattern += "(?:.*/)?";
+        index++;
+      } else pattern += ".*";
+    } else if (char === "*") pattern += "[^/]*";
+    else if (char === "?") pattern += "[^/]";
+    else pattern += char.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${pattern}$`).test(path);
+}
 
 /** A path or content the tools refused; nothing was touched. */
 export class WorkspaceError extends Error {
@@ -70,16 +93,19 @@ export type ResolvedPath = Readonly<{
 
 /** Project-relative roots this scope may write under. */
 export function writeRoots(scope: WorkspaceScope): readonly string[] {
+  if (scope.writeGlobs) return scope.writeGlobs;
   return ["song.ts", `tracks/${scope.trackSlug}/`];
 }
 
 export function inWriteScope(scope: WorkspaceScope, rel: string): boolean {
+  if (scope.writeGlobs)
+    return scope.writeGlobs.some((glob) => globMatch(glob, rel));
   return rel === "song.ts" || rel.startsWith(`tracks/${scope.trackSlug}/`);
 }
 
 function outsideWriteScope(scope: WorkspaceScope, rel: string): WorkspaceError {
   return new WorkspaceError(
-    `${rel || "."} is outside this window's writable scope; it may write ${writeRoots(scope).join(" and ")} (reads work anywhere except ${RUNTIME_DIR}/)`,
+    `${rel || "."} is outside this window's writable scope; it may write ${writeRoots(scope).join(" and ") || "nothing"} (reads work anywhere except ${RUNTIME_DIR}/)`,
   );
 }
 

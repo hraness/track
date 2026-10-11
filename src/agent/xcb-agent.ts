@@ -5,6 +5,7 @@ import { CHORD_PROCESS } from "../../core/chords.ts";
 import {
   AGENT_LIMITS,
   MEDIA_PROMPT,
+  DISPATCH_PROMPT,
   classifyAgentError,
   executeCall,
   hostProjectOutline,
@@ -38,6 +39,8 @@ export type TextAgentTurnOptions = Readonly<{
   onEvent?: (event: AgentEvent) => void;
   signal?: AbortSignal;
   budget?: AgentBudget;
+  /** History id of this turn; default a fresh one. */
+  turnId?: string;
   tools?: readonly AgentTool[];
   newNoteId?: (trackId: string, revision: number, index: number) => string;
 }>;
@@ -76,6 +79,7 @@ export const TEXT_AGENT_SYSTEM_PROMPT = [
   "If an op was rejected, read its diagnostic and either send a corrected op or stop with done:true.",
   WORKSPACE_PROMPT,
   MEDIA_PROMPT,
+  DISPATCH_PROMPT,
   'Media tools return their outputs in the op result; send them alone with "done":false and chain on the result.',
 ].join(" ");
 
@@ -126,6 +130,7 @@ export async function runTextAgentTurn(
   };
   const tools = options.tools ?? AGENT_TOOLS;
   const catalog = renderToolCatalog(tools);
+  const turnId = options.turnId ?? newId("turn");
   const newNoteId =
     options.newNoteId ??
     ((trackId: string, _revision: number, _index: number) => newId(trackId));
@@ -239,11 +244,13 @@ export async function runTextAgentTurn(
         const outcome = await executeCall(
           { id: callId, name: op.tool, arguments: JSON.stringify(op.args) },
           {
+            turnId,
             tools,
             host: options.host,
             newNoteId,
             signal,
             suspendTimeout: deadline.suspend,
+            emit,
             onProgress: (line) =>
               emit({ type: "tool-progress", callId, name: op.tool, line }),
           },

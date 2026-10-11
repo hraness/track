@@ -4,6 +4,10 @@ All notable changes to dawg are recorded here. Versions follow [semantic version
 
 ## Unreleased
 
+### Added
+
+- **Subagents.** The agent's `dispatch` tool runs up to four subagents in parallel on the same provider (the fast model by default), each confined to its own tracks, bars and files. Overlapping scopes are refused before anything runs; edits to different tracks rebase onto each other, a real clash is reported as a conflict rather than forced, and every child edit is its own `[task]`-labelled revision you can undo on its own. Esc cancels them all, and their spend joins the turn's.
+
 ## 0.9.0
 
 The patcher: modular instruments and effects built from nodes and cables, played by the song render, the loop and live keys, edited from a `/patch` view, typed `patch` commands, the agent and `song.ts`, with eight built-in patches and four macro knobs. Plus Ctrl-K breadcrumbs, short guide pages, real screens on dawg.sh and fixes for typed-ahead input.

@@ -22,6 +22,7 @@ import {
   WorkspaceError,
   writeFile,
   writeRoots,
+  globMatch,
   type WorkspaceScope,
 } from "./workspace.ts";
 
@@ -406,5 +407,26 @@ describe("projectOutline", () => {
       trackSlug: "bass",
     });
     expect(missing).toEqual({ tree: [] });
+  });
+});
+
+describe("dispatch write globs", () => {
+  test("globs replace the default write scope", async () => {
+    const sub: WorkspaceScope = {
+      root,
+      trackSlug: "bass",
+      writeGlobs: ["tracks/drums/**", "notes/*.md"],
+    };
+    expect(globMatch("tracks/drums/**", "tracks/drums/a/b.ts")).toBe(true);
+    expect(globMatch("**/x.ts", "x.ts")).toBe(true);
+    expect(globMatch("**/x.ts", "ax.ts")).toBe(false);
+    expect(globMatch("notes/*.md", "notes/a/b.md")).toBe(false);
+    await writeFile(sub, "tracks/drums/notes.md", "kick on 1\n");
+    await rejects(
+      writeFile(sub, "tracks/bass/notes.md", "x"),
+      /outside this window's writable scope; it may write tracks\/drums\/\*\* and notes\/\*\.md/,
+    );
+    await rejects(writeFile(sub, "song.ts", "x"), /outside this window/);
+    expect(writeRoots(sub)).toEqual(["tracks/drums/**", "notes/*.md"]);
   });
 });
