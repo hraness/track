@@ -14,7 +14,7 @@ type Pty = Awaited<ReturnType<typeof launch>>;
  */
 function lit(t: Pty, letter: string): boolean {
   const lines = t.vt.lines();
-  const escaped = letter.replace(/[;']/g, "\\$&");
+  const escaped = letter.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
   for (let y = 1; y < 8; y += 1) {
     const line = lines[y] ?? "";
     // Key caps stand alone: ` S    D`, never inside a word.
