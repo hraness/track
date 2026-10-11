@@ -17,6 +17,7 @@ export const SUBCOMMANDS: readonly string[] = [
   "init",
   "check",
   "media",
+  "history",
 ];
 export const VALUE_FLAGS = [
   "--session",

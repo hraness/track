@@ -993,7 +993,7 @@ function exportNodes(context: MenuContext): MenuNode[] {
   ];
 }
 
-/** Project › session: rename, fork and resume (the window's verbs). */
+/** Project › session: rename, fork, resume, comments and history. */
 function sessionNodes(context: MenuContext): MenuNode[] {
   return [
     {
@@ -1022,6 +1022,27 @@ function sessionNodes(context: MenuContext): MenuNode[] {
       label: "list sessions",
       command: "/sessions",
       help: "every session in this folder, newest first",
+    },
+    {
+      kind: "entry",
+      label: "comment",
+      value: "",
+      placeholder: "a note on this moment (#good, #love, @agent)",
+      example: "/comment love this bass #love",
+      help: "a breadcrumb with the focus, playhead and pane; the agent reads it",
+      command: (text) => (text.trim() ? `/comment ${text.trim()}` : undefined),
+    },
+    {
+      kind: "action",
+      label: "comments",
+      command: "/comments",
+      help: "this session's comments, newest last",
+    },
+    {
+      kind: "action",
+      label: "history",
+      command: "/history",
+      help: "every edit, comment and agent turn; enter jumps to its moment",
     },
   ];
 }
