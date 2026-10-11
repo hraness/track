@@ -338,6 +338,8 @@ import {
   type AudioBackendInfo,
 } from "./audio/engine.ts";
 import { audioMenuState, runAudioCommand } from "./audio/audio-command.ts";
+import { runAgentSettingsCommand } from "./commands/agent-settings.ts";
+import { readAgentSettings } from "./agent/settings.ts";
 import {
   DEFAULT_GRID,
   GRIDS,
@@ -998,6 +1000,15 @@ const gestureEcho: {
   text?: string | undefined;
   clear?: ReturnType<typeof setTimeout> | undefined;
 } = {};
+
+/** `.dawg/agent.json` shell switch, for the Project › agent › shell row. */
+let agentShellOn = false;
+async function refreshAgentShell(): Promise<void> {
+  agentShellOn =
+    (await readAgentSettings(process.cwd()).catch(() => undefined))?.shell ??
+    false;
+}
+void refreshAgentShell();
 
 const showMe: {
   level: ShowMeLevel;
@@ -2555,6 +2566,17 @@ async function submit(prompt: string): Promise<string | Receipt> {
       tui.openText(/test/i.test(command) ? "audio test" : "audio", [
         ...result.lines,
       ]);
+    return result.ok ? ok(result.message) : fail(result.message);
+  }
+  const agentSettings = command.match(/^\/agent\s+(.+)$/i);
+  if (agentSettings) {
+    const result = await runAgentSettingsCommand(
+      agentSettings[1]!,
+      process.cwd(),
+    );
+    if (result.ok && result.lines && result.lines.length > 0)
+      tui.openText("read roots", [...result.lines]);
+    void refreshAgentShell();
     return result.ok ? ok(result.message) : fail(result.message);
   }
   const showMeCommand = command.match(/^\/show-?me(?:\s+(\S+))?$/i);
@@ -4840,6 +4862,7 @@ function menuContext(): MenuContext {
     clickOn: session?.clickOn ?? false,
     countInBars: session?.countInBars ?? 1,
     showMe: showMe.level,
+    agentShell: agentShellOn,
     audio: audioMenu(),
     chords: stagedChordSettings() ?? session?.chords.settings ?? chordSettings,
     projectRoot: process.cwd(),

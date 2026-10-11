@@ -315,6 +315,7 @@ export const WINDOW_VERBS: ReadonlySet<string> = new Set([
   "theme",
   "motion",
   "showme",
+  "agent",
   "audio",
   "model",
   "sessions",

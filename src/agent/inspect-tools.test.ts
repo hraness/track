@@ -70,13 +70,21 @@ describe("inspect", () => {
 
   test("score pages tracks past its budget", async () => {
     const many = createScore({
-      tracks: Array.from({ length: 60 }, (_, i) => ({
+      tracks: Array.from({ length: 64 }, (_, i) => ({
         id: `track-with-a-long-id-${i}`,
         name: `track-with-a-long-id-${i}`,
         instrument: "saw",
       })),
     });
     const first = await inspect(many, { what: "score" });
+    expect(new TextEncoder().encode(first).length).toBeLessThanOrEqual(6144);
+    for (const what of ["mix", "sections", "track"] as const) {
+      const out = await inspect(many, {
+        what,
+        ...(what === "track" ? { target: "track-with-a-long-id-3" } : {}),
+      });
+      expect(new TextEncoder().encode(out).length).toBeLessThanOrEqual(6144);
+    }
     const match = /… \((\d+) more; cursor=(\d+)\)$/.exec(first);
     expect(match).not.toBeNull();
     const next = await inspect(many, {

@@ -20,6 +20,7 @@ import { createScore, type TrackScore } from "../core/score.ts";
 import { DRUM_VOICES } from "../core/drums.ts";
 import { listGuides } from "../guides/index.ts";
 import { parseShowMe } from "../src/agent/show-me.ts";
+import { parseAgentSettingsCommand } from "../src/commands/agent-settings.ts";
 import { resolveModelChoice } from "../src/agent/models.ts";
 import { parseClickArgument } from "../src/audio/click.ts";
 import { tuiLoginArgs } from "../src/auth/tui.ts";
@@ -118,6 +119,7 @@ const WINDOW_ARGS: Readonly<Record<string, ArgCheck>> = {
   menu: (arg) =>
     (MENU_SECTIONS as readonly string[]).includes(arg.toLowerCase()),
   showme: (arg) => parseShowMe(arg) !== undefined,
+  agent: (arg) => parseAgentSettingsCommand(arg) !== undefined,
   audio: (arg) => parseAudioCommand(arg) !== undefined,
   click: (arg) =>
     !("error" in parseClickArgument(arg, { on: false, volume: 0.5 })),
