@@ -415,7 +415,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "update_notes",
     description:
-      "Move, resize, transpose, re-velocity or detune existing notes by id. Times are in beats. To transpose, prefer transpose (semitones relative to the note's current pitch, e.g. 2 up a whole step, -12 down an octave) over an absolute pitch.",
+      "Move, resize, transpose, re-velocity or detune existing notes by id (times in beats). Prefer transpose (semitones relative) over an absolute pitch.",
     parameters: {
       type: "object",
       properties: {
@@ -544,7 +544,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "set_instrument",
     description:
-      "Change a track's instrument voice. Mallets and bells (modal): modal (marimba) vibes xylophone glock celesta chimes kalimba mbira steelpan bowl gong timpani, gamelan saron gangsa bonang …; set_modal shapes them. Electric keys: epiano suitcase dyno wurli clav funkclav (set_keys). Winds and brass (wind engine): flute recorder clarinet oboe bassoon sax trumpet trombone tuba horn …; set_wind shapes them.",
+      "Change a track's instrument voice (mallets and bells: set_modal shapes them; electric keys: set_keys; winds and brass: set_wind).",
     parameters: {
       type: "object",
       properties: {
@@ -661,7 +661,8 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   },
   {
     name: "set_automation",
-    description: `Write an automation lane: volume 0..1, pan -1..1, filter (cutoff Hz), resonance 0..${SCORE_LIMITS.maxFilterResonance}, delay-feedback 0..${SCORE_LIMITS.maxDelayFeedback}, delay-mix, wt (wavetable position 0..1), or <effect>-<param> (the param's range). The effect must be on to be heard. mode=replace (default) rewrites the lane; merge keeps other beats. An empty replace clears it.`,
+    description:
+      "Write an automation lane (volume, pan, filter, resonance, delay-feedback, delay-mix, wt or <effect>-<param>). mode replace (default) rewrites the lane, merge keeps other beats; an empty replace clears it.",
     parameters: {
       type: "object",
       properties: {
@@ -795,7 +796,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "set_rig",
     description:
-      "Guitar rig on a track (stomp → amp head with noise gate → speaker cab, before tremolo). rig loads a whole rig (clean crunch punk ragged lead metal fuzz octave funk wah bachata spring bassdrive reese jangle alt, and the shoegaze rigs shoegaze glide dreampop swell ebow that add wobble/bloom/swell/double and a long reverb) or reset removes it; stomp/head/cab set stage params (stomp type fuzz|face|od|rat|octave gain tone level; head type clean|chime|crunch|lead|high|solid|bass gain bass mid treble presence master sag gate(dB); cab type 1x12|2x12|4x12|1x10|open|8x10|1x15|di mic), or null removes a stage. Heads are level-matched. `amp` is Strudel gain, not this.",
+      "Guitar rig on a track (stomp, amp head with gate, cab): rig loads a whole rig or reset removes it; stomp/head/cab set stage params, null removes a stage. `amp` is Strudel gain, not this.",
     parameters: {
       type: "object",
       properties: {
@@ -881,7 +882,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "set_synth",
     description:
-      "Shape a synth track's voice with Strudel synth params (attack decay sustain release, lpf lpq lpenv, fm fmh, unison detune spread, vib vibmod, penv, noise, pw…); null unsets one. preset loads a voice (instrument + params); reset clears all; zzfx takes a raw ZzFX array (empty slots null) and sets a z_* sound.",
+      "Shape a synth track's voice with Strudel synth params; null unsets one. preset loads a voice, reset clears all, zzfx takes a raw ZzFX array.",
     parameters: {
       type: "object",
       properties: {
@@ -926,7 +927,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "set_string",
     description:
-      "Make a track a plucked, struck or bowed string (physical model). Bowed presets (exciter bow): violin viola cello contrabass fiddle erhu kamancheh, sections violins violas cellos contrabasses, pizz trem. preset picks the instrument; params override it (ring s, bright, damp, pos, mute, buzz = jawari, body, sym = sympathetic strings, stiff, exciter pick|finger|hammer|noise|bow); null unsets one. Bowed presets take pressure speed attack vib vibmod vibdelay tremhz sord dyn. reset keeps the preset and drops overrides; off returns the track to a plain pluck voice.",
+      "Make a track a plucked, struck or bowed string (physical model): preset picks the instrument, params override it (null unsets); reset drops overrides, off returns to a plain pluck.",
     parameters: {
       type: "object",
       properties: {
@@ -968,7 +969,8 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   },
   {
     name: "set_keys",
-    description: `Shape a modeled piano, electric keys (epiano wurli clav) or organ: preset (instrument, keys and its effects), params ${KEYS_SIMPLE.join(" ")}… (pianos: sym 0.5 adds sympathetic bloom under the sustain pedal, good for Chopin and Debussy; epiano: bark bell tone vibe; wurli: trem; clav: pickup mute; null unsets; DAWG.md lists all), or reset. Stored "piano" stays legacy; set_instrument piano writes grand. Organs (not "organ", a legacy synth): presets tonewheel combo pipe… (aliases hammond b3 farfisa church); drawbars "888800008", registers "08880", stops (plenum, flute8…), rotary; params perc percdecay percvol click scanner drive (tonewheel), voice vib vibmod drive (combo), chiff wind trem (pipe). A row the family does not read is refused.`,
+    description:
+      "Shape a modeled piano, electric keys (epiano wurli clav) or organ (tonewheel combo pipe): preset, params (null unsets), drawbars/registers/stops/rotary for organs, or reset. A row the family does not read is refused.",
     parameters: {
       type: "object",
       properties: {
@@ -1025,7 +1027,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "set_modal",
     description:
-      "Mallets and bells on the modal engine: preset (marimba vibes xylophone glock celesta chimes kalimba mbira steelpan bowl gong timpani) switches the voice and keeps overrides (gamelan: crotales musicbox toypiano saron demung slenthem gangsa gender bonang kenong kethuk kempul; frame drums daf bodhran tabla); mallet yarn|cord|rubber|plastic|brass; params sets MODAL_PARAMS (hardness position ring tilt release damp motor motordepth ombak buzz click strikebend strikedecay gain), null returns one to the preset; pair names a partner modal track: this track (pengisep) sounds ombak Hz above it and the partner (pengumbang) gets ombak 0, null unpairs; reset clears overrides. Turns the track into instrument modal.",
+      "Mallets and bells on the modal engine: preset switches the voice and keeps overrides; mallet, params (null returns one to the preset), pair (gamelan ombak partner), reset.",
     parameters: {
       type: "object",
       properties: {
@@ -1143,7 +1145,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "set_wind",
     description:
-      "Winds and brass on the wind engine (breath-driven waveguides): preset (flute recorder whistle ney shakuhachi panpipe suling bansuri clarinet bassclarinet oboe bassoon sax altosax barisax trumpet harmon plunger trombone tuba horn) switches the voice and keeps overrides; params sets WIND_PARAMS (breath bright mute players growl noise attack release vib vibmod reed stopped wah wahenv flutter gain model), null returns one to the preset; players 2..8 is a section that spreads over chord tones; reset clears overrides; off returns to the legacy wind tone. Lines slur by default (a note that starts while one note is held is not re-tongued). Turns the track into the wind engine.",
+      "Winds and brass on the wind engine: preset switches the voice and keeps overrides; params (null returns one to the preset), players 2..8 for a section, reset, off.",
     parameters: {
       type: "object",
       properties: {
@@ -1244,7 +1246,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "set_sample",
     description:
-      "Set a sampler voice's Strudel sample controls: begin end gain speed unit(r|c|s) loop loopBegin loopEnd clip(legato) fit loopAt accelerate squiz cut, and (0.6.1) shift (semitones, length kept) formant (0 keeps the voice's formants) fadeInTime fadeTime (seconds), vel [lo,hi] (velocity layer) rr (round-robin group). null unsets one.",
+      "Set a sampler voice's Strudel sample controls (begin end gain speed loop clip fit shift fades vel rr …); null unsets one.",
     parameters: {
       type: "object",
       properties: {
@@ -1299,7 +1301,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "fit_sample",
     description:
-      "Fit a sampler voice to the song's tempo map (ramps included): bpm is the sample's own tempo (20..400), len its length in beats; fitmode repitch (tape: pitch moves with speed, default) | beats (drums, speech: onset slices placed on time, unstretched) | tones (pads, vocals: phase-vocoder stretch, pitch kept). fit on > bpm > len. null unsets one. Song tempo is set_tempo, not this.",
+      "Fit a sampler voice to the song's tempo map: bpm (its own tempo) or len (beats); fitmode repitch (default) | beats (drums, speech) | tones (pads, vocals). Song tempo is set_tempo.",
     parameters: {
       type: "object",
       properties: {
@@ -1894,7 +1896,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "edit_file",
     description:
-      "Replace one exact occurrence of old with new in a writable file (same scope as write_file). old must match exactly once; otherwise the result tells you the count. Prefer this over many note tools for large edits or restructuring of tracks/<slug>/track.ts.",
+      "Replace one exact occurrence of old with new in a writable file (same scope as write_file); old must match exactly once.",
     parameters: {
       type: "object",
       properties: {

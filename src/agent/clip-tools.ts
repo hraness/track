@@ -75,7 +75,7 @@ const setClipsOp = (
 const placeClip: VoiceTool = {
   name: "place_clip",
   description:
-    "Place an audio file already in the project (an import_sample result, a split_stems stem such as tracks/<slug>/downloads/<song>.stems/vocals.wav) as a clip on a track at a beat. Pins the file's sha256 and sets clip gain so the file peaks at -6 dBFS. Clips sum before the track's effects; on a `vocal` track the notes are silent guides. Optional offset and dur (seconds into the file), gain (dB -60..12, overrides the -6 dBFS level; the project stores it linear), fadeIn/fadeOut (seconds, equal-power; stored as fadeInTime/fadeTime), rev.",
+    "Place a project audio file as a clip on a track at a beat (pinned by sha256, peaks at -6 dBFS) with optional offset, dur, gain, fades, rev.",
   parameters: {
     type: "object",
     properties: {
@@ -192,7 +192,7 @@ const placeClip: VoiceTool = {
 const editClip: VoiceTool = {
   name: "edit_clip",
   description:
-    "Edit a clip on a track by id: at (beats), gain (dB -60..12; 0 removes; stored linear), fadeIn/fadeOut (seconds, equal-power; stored as fadeInTime/fadeTime), offset/dur (seconds into the file; dur null plays to the end), rev, mute, split (a beat: cuts the clip in two there with 5 ms fades, the tail gets a new id), repeat {every, until} in beats (writes copies <id>-r2, -r3...), remove.",
+    "Edit a clip by id: at, gain, fades, offset/dur, rev, mute, split (a beat), repeat {every, until}, remove.",
   parameters: {
     type: "object",
     properties: {
@@ -381,7 +381,7 @@ const editClip: VoiceTool = {
 const setLyrics: VoiceTool = {
   name: "set_lyrics",
   description:
-    "Put lyrics on a track's notes in time order (chords sing on their top note): spaces separate syllables, hyphens split words (nev-er), _ holds the previous syllable over a note (melisma), ~ skips a note. Words typed whole are split automatically when there are more notes than syllables. from (beats) starts later; clear removes lyrics from there on. Lyrics are text on notes; they guide sing and future TTS and show on the highway.",
+    "Put lyrics on a track's notes in time order: spaces separate syllables, hyphens split words, _ holds (melisma), ~ skips; from starts later, clear removes.",
   parameters: {
     type: "object",
     properties: {

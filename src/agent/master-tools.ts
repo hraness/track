@@ -195,7 +195,8 @@ async function measureWith(
 export const MASTER_TOOLS = Object.freeze([
   {
     name: "set_master",
-    description: `Edit the song master (after every track and bus) and its loudness target. Units run eq, glue, tape, width, limiter; each takes false (remove), true (defaults), a preset or {param: value}; omitted units stay. A named target (${TARGET_LIST}) also sets the limiter. off:true removes the master.`,
+    description:
+      "Edit the song master (eq, glue, tape, width, limiter: false, true, a preset or params) and its loudness target; off:true removes it.",
     parameters: {
       type: "object",
       properties: {
@@ -251,7 +252,7 @@ export const MASTER_TOOLS = Object.freeze([
   {
     name: "measure_mix",
     description:
-      "Render and measure the song (read-only): integrated, short-term and momentary LUFS, loudness range, true peak, PLR, band balance (dB share), stereo correlation and side level, after the master. bypass_master:true measures before it.",
+      "Render and measure the song (read-only): LUFS, loudness range, true peak, band balance, stereo correlation; bypass_master:true measures before the master.",
     parameters: {
       type: "object",
       properties: {

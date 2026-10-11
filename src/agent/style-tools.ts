@@ -69,7 +69,7 @@ export const STYLE_TOOLS = Object.freeze([
   {
     name: "list_styles",
     description:
-      "Browse the style taxonomy (read-only). query: ranked search over ids, names, aliases and regions. parent: the children of one style id. Neither: the families and their root styles. Returns ids to pass to style_info and apply_style.",
+      "Browse the style taxonomy (read-only): query searches, parent lists children, neither lists families.",
     parameters: {
       type: "object",
       properties: {
@@ -150,7 +150,8 @@ export const STYLE_TOOLS = Object.freeze([
   },
   {
     name: "apply_style",
-    description: `Replace the whole song with one generated from a style: drums, bass, harmony, melody and form from the style's patterns (one undo step). bars ${STYLE_LIMITS.minBars}..${STYLE_LIMITS.maxBars} (default ${STYLE_LIMITS.defaultBars}); seed picks a variation (same seed, same song). blend + weight (0 is id, 1 is blend) mixes two styles.`,
+    description:
+      "Replace the whole song with one generated from a style (one undo step); bars 1..64, seed picks a variation, blend+weight mixes two styles.",
     parameters: {
       type: "object",
       properties: {

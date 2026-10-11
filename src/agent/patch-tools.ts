@@ -193,7 +193,8 @@ export const PATCH_PROMPT = `Modular patches: patch_edit builds a track's sound 
 export const PATCH_TOOLS = Object.freeze([
   {
     name: "patch_edit",
-    description: `Edit a track's modular patch, or an effect patch (fx). ops run in order as one undo step; a bad op rejects all. Ops mirror typed \`patch\` lines: new {name, role?, from?}, add {type, id?, params?}, set {id, params}, wire {from, to, amount?} (node.port), unwire {from, to}, macro {id, targets:["node.port[:min..max]"], label?} (knobs 1-4 first), knob {id, value}, rate {id, rate}, rm {id}, convert, detach, load {name}, save {name}. Boundary ports: in.notes/audio/right/side, out.audio/right, voice.pitch/gate/velocity/note, song.beat/tempo. show:true reads it as lines.`,
+    description:
+      "Edit a track's modular patch or an fx patch: ops (new add set wire unwire macro knob rate rm convert detach load save) run in order as one undo step; show:true reads it as lines.",
     parameters: {
       type: "object",
       properties: {

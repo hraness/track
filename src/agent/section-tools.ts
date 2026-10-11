@@ -315,7 +315,7 @@ export const SECTION_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "edit_section",
     description:
-      "Arrange song sections (named bar ranges; bars count from 1). mark names bars fromBar..fromBar+bars-1 without moving music; add appends empty bars as a new section; duplicate copies a section's music after it; move moves its music (toBar, before or after a section); rename; delete removes its bars and music; unmark drops only the name; mute/unmute silences tracks in it; vary sets a track's transpose (semitones) and gain (0..2) in it (neither: clears); reset clears mutes and variations; loop makes playback cycle it; unloop plays the song.",
+      "Arrange song sections (named bar ranges; bars count from 1): mark, add, duplicate, move, rename, delete, unmark, mute/unmute, vary, reset, loop, unloop.",
     parameters: {
       type: "object",
       properties: {
@@ -359,7 +359,7 @@ export const SECTION_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "set_form",
     description:
-      'Set the song form: the order sections play in, with repeats, e.g. "intro verse chorus*2 verse chorus outro" (commas when a name has spaces). Playback and export follow it. An empty string clears it; bake writes the form out as plain bars (sections laid end to end) and clears it.',
+      'Set the play order of sections with repeats, e.g. "intro verse chorus*2 outro"; empty clears; bake writes it out as plain bars.',
     parameters: {
       type: "object",
       properties: {
@@ -380,7 +380,8 @@ export const SECTION_TOOLS: readonly AgentTool[] = Object.freeze([
   },
   {
     name: "add_transition",
-    description: `Generate a transition with the built-in voices (bars count from 1). build: noise riser, accelerating snare roll, filter sweep and uplifter (all on by default), landing on the bar after its range. The range is \`bars\` bars (default 4) just before section \`into\` (the usual build into a drop or chorus); or a section's own bars (its last \`bars\` bars when bars is given); or \`bars\` bars starting at atBar; default the song's last 4 bars. The sweep is a high-pass rising to 1.2 kHz on pitched tracks (a low-pass opening from cutoff/10 on low-pass tracks), snapping back on the downbeat. drop: a pre-drop cut (cutBeats of silence, default 1, up to two bars) and an impact hit on the section's first bar or atBar (default: the section named drop, else chorus). fill: a drum fill (${FILL_STYLES.join(", ")}) in the last beats (default 1, ${FILL_BEATS_MIN} up to two bars) leading into the section or into atBar, plus a crash on its downbeat. Without section or atBar, fills go at every section boundary. Out-of-range values are clamped.`,
+    description:
+      "Generate a transition with built-in voices (bars count from 1): build (riser, roll, sweep, uplifter), drop (cut plus impact) or fill (drum fill plus crash), before a section, at a bar or at every boundary.",
     parameters: {
       type: "object",
       properties: {

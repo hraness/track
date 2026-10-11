@@ -271,7 +271,8 @@ export const FORMANT_TOOLS: readonly VoiceTool[] = [
   {
     name: "set_formant",
     previewable: true,
-    description: `Shift a track's formants at constant pitch (the throat or gender knob; works on any source, voices most of all): shift -12..12 semitones (negative deeper or bigger, positive smaller or younger; 2-4 is natural, 7+ is a cartoon), mix 0..1 (default 1); preset ${FORMANT_PRESETS.join(" ")}; off removes it. Automatable as lanes formant-shift and formant-mix. The vowel filter is set_fx vowel (vowel, to, morph 0..1 morphs between two vowels; lane vowel-morph).`,
+    description:
+      "Shift a track's formants at constant pitch: shift -12..12 st, mix 0..1, preset deep giant bright tiny, off.",
     parameters: {
       type: "object",
       properties: {
@@ -363,7 +364,8 @@ export const SING_TOOLS: readonly VoiceTool[] = [
   {
     name: "set_sing",
     previewable: true,
-    description: `The built-in singing voice (a synthetic LF glottal source through Klatt formants; no recorded or cloned voice). preset (${SING_PRESET_NAMES.join(" ")}) switches the voice and keeps overrides; params sets ${Object.keys(SING_PARAMS).join(" ")}, null returns one to the preset; voices 2..8 is an ensemble (choir); vowel is a e i o u or a morph a>o; drone (a note name like D3 or a MIDI number) turns on throat singing: khoomei, sygyt (whistle) and kargyraa (sub-octave growl) pick a harmonic of the drone per note. A throat preset on a track with no notes writes a short demo melody (8 notes an octave above the drone); write your own notes instead when you have a melody. reset clears overrides; off removes the voice. Notes sing their vowel (set_vowels) or their lyric's vowel. Turns the track into the sing engine.`,
+    description:
+      "The built-in singing voice (synthetic, never cloned): preset switches the voice and keeps overrides; params (null returns one), voices 2..8, vowel, drone (throat singing), reset, off.",
     parameters: {
       type: "object",
       properties: {
@@ -472,7 +474,7 @@ export const SING_TOOLS: readonly VoiceTool[] = [
     name: "set_vowels",
     previewable: true,
     description:
-      "Set the sung vowel of a sing track's notes (set_sing). vowels: a list cycled over the notes in time order, each a e i o u (also ah eh ee oh oo) or a morph like a>u that travels through the note; noteIds limits it to those notes; vowels [] or null clears them so notes sing their lyric's vowel or the track's vowel.",
+      "Set the sung vowel of a sing track's notes: a list cycled in time order (a e i o u or morphs like a>u); noteIds limits it; [] or null clears.",
     parameters: {
       type: "object",
       properties: {
@@ -597,7 +599,7 @@ export const VOCODER_TOOLS: readonly VoiceTool[] = [
     name: "set_vocoder",
     previewable: true,
     description:
-      "Put a vocoder on a track (the carrier: its synth, sampler or the built-in `vocoder` instrument) or change it. To vocode a vocal, create_track with instrument vocoder, then set_vocoder src <vocal>. src is the modulator track, usually a vocal (id or name slug). preset (classic robot talkbox choir glass whisper smear lofi) keeps overrides; params sets VOCODER_PARAMS keys, null returns one to the preset; reset drops every override (keeps src and preset); off removes the vocoder. The modulator is heard even when muted. Returns a cost hint and the modulator's license. Vocode only the user's own or licensed audio.",
+      "Put a vocoder on a carrier track or change it: src (modulator track), preset, params (null returns one), reset, off. Vocode only the user's own or licensed audio.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -791,7 +793,7 @@ export const AUTOTUNE_TOOLS: readonly VoiceTool[] = [
     name: "autotune_vocal",
     previewable: true,
     description:
-      "Pitch correction on a track's audio (its clips and sampler voices), gentle to hard. preset: hard (instant stepped notes), robot (stepped on every tuning step), warble (hard with synthetic vibrato), trap (fast, glossy), pop (default: polished but sung), natural, gentle (keeps vibrato), guided (follows guide notes), locked (follows notes exactly). params override one field, null returns it to the preset: to scale|chromatic|chord|notes (scale: key or the song key and tuning, so maqam, raga and n-EDO work; chromatic without a key; chord: the chord timeline; notes: `from` or the track's own notes), from <trackId>, key (e.g. 'D bayati'), speed ms (0 instant), relax 0..1, hold ms, flex 0..100 (Antares-style: bends wider than flex cents pass), glide ms (0..500), amount 0..1, vib Hz, vibmod semitones, center 0..1, drift 0..1, voice auto|bass|tenor|alto|soprano. reset drops overrides; off removes it. Unsure of the key? analyze_pitch first. Never fetch an artist's vocal to imitate.",
+      "Pitch correction on a track's audio: preset (hard robot warble trap pop natural gentle guided locked) and params overrides (to, key, speed, …; null returns one), reset, off. Never fetch an artist's vocal to imitate.",
     parameters: {
       type: "object",
       properties: {

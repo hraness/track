@@ -69,7 +69,7 @@ export const RESAMPLE_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "resample",
     description:
-      "Bounce a track (default focused), an orbit (no master) or the master over the song, a section or bars [first,last] to a pinned WAV, adding a one-shot sampler track that plays it in place; grain adds a granular track instead; post keeps the master chain.",
+      "Bounce a track, orbit or the master (song, section or bars) to a pinned WAV and add a sampler (or granular) track that plays it.",
     parameters: {
       type: "object",
       properties: {

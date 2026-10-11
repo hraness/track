@@ -187,7 +187,7 @@ export const TIME_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "set_time",
     description:
-      "Tempo map and meter: action tempo (bpm at beat|bar; ramp linear|exp glides into it), rit/accel (bars or beats long, optional target bpm and start; default 75%/133% over the last 2 bars), a_tempo/tempo_primo (step back to the tempo before the last rit/accel, or to the start tempo; at the bar after it unless beat|bar), fermata (hold beat|bar for beats extra beats), meter ('7/8' from bar, or the whole song without bar), remove_tempo/remove_fermata/remove_meter, clear (what: tempo|meter|fermatas|track|all). Per-track polytempo/polymeter: action track with rate (tempo ratio, 1.5 = three against two), phase (beats later) and cycle (beats per repeat), null resets one; action phasing (cycle beats, over beats, cycles n) sets a continuous drift that realigns at the loop end (over must divide the loop); with hold/drift (whole cycles) and shift (beats, default 0.25) it is stepped, as in Piano Phase: hold in step, then move shift ahead over drift cycles. Beats count from 0, bars from 1.",
+      "Tempo map and meter: tempo (ramps), rit/accel, a_tempo, fermata, meter, removes and clear; per-track polytempo (action track) and phasing. Beats count from 0, bars from 1.",
     parameters: {
       type: "object",
       properties: {

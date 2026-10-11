@@ -101,7 +101,7 @@ export const MEDIA_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "download_audio",
     description:
-      "Download the audio of a YouTube video as a wav into the focused track's downloads/ folder (with a .json sidecar: title, duration, source, sha256). YouTube URLs only; 500 MiB and 15 minutes of wall time at most. Check the brief's downloads list first so the same video is never fetched twice.",
+      "Download a YouTube video's audio as a wav (with a .json sidecar) into the focused track's downloads/. Check the brief's downloads first: never fetch twice.",
     parameters: {
       type: "object",
       properties: {
@@ -132,7 +132,7 @@ export const MEDIA_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "split_stems",
     description:
-      "Separate a downloaded wav into six stems (vocals, drums, bass, guitar, piano, other) in <file>.stems/. Uses a local StemDeck when one is running, otherwise demucs htdemucs_6s (up to 20 minutes; the first run downloads the model).",
+      "Separate a downloaded wav into six stems in <file>.stems/ (StemDeck when running, else demucs; up to 20 minutes).",
     parameters: {
       type: "object",
       properties: { file: fileSchema },
@@ -166,7 +166,7 @@ export const MEDIA_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "transcribe_notes",
     description:
-      'Transcribe a stem to notes. kind=drums classifies kick/snare/hat/… hits; other kinds run basic-pitch. Returns up to 2048 timed notes and a quantized snippet (note("A1", startBeat, lengthBeats, velocity) or hit("kick", beat)) aligned to the file\'s beat grid; use from/to (seconds) to transcribe one section.',
+      "Transcribe a stem to notes (kind=drums classifies hits; others run basic-pitch), aligned to the beat grid, up to 2048 notes; from/to (seconds) limit it.",
     parameters: {
       type: "object",
       properties: {
@@ -270,7 +270,7 @@ export const MEDIA_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "make_wavetable",
     description:
-      "Make a wavetable from any audio file in the project (download, stem, imported sample): writes tracks/<slug>/wavetables/<name>.wav (float32, 2048-sample frames) and reports the detected pitch, method and how the timbre moves across the frames. Region defaults to the most stable tonal 2 s; method auto picks slice (pitched single cycles) or spectral (vocals, pads, noise). Then set_wavetable with that path as table.",
+      "Make a wavetable from a project audio file into tracks/<slug>/wavetables/<name>.wav and describe its sweep; then set_wavetable with that path.",
     parameters: {
       type: "object",
       properties: {

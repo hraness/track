@@ -175,7 +175,7 @@ export const RANGE_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "edit_range",
     description:
-      "Edit bar ranges (bars count from 1; a range is fromBar..toBar or a section name). loop sets the loop range playback cycles (no section is made); unloop plays the song. copy copies a track's (or allTracks') notes, automation and clips in the range to atBar, overwriting there (merge keeps what is there; insert shifts later music right), times tiles it end to end. move is copy plus clearing the source. clear empties the range (the bars stay). reverse mirrors it in time. insert_bars adds `bars` empty bars at atBar and moves later sections, clips, automation and tempo points right; remove_bars cuts the range out. split cuts a section in two at atBar; join merges a section with the one after it. Each call is one undo step and runs the same command the prompt does.",
+      "Edit bar ranges (fromBar..toBar or a section; bars count from 1): loop, unloop, copy, move, clear, reverse, insert_bars, remove_bars, split, join. One undo step each.",
     parameters: {
       type: "object",
       properties: {

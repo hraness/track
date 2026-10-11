@@ -166,7 +166,7 @@ function trackFor(args: Record<string, unknown>, context: ToolContext): string {
 const SET_TUNING: AgentTool = {
   name: "set_tuning",
   description:
-    "Set the song tuning (every track follows it) or one track's own tuning: a library tuning by name, n-EDO, just ratios, cents, or a Scala .scl/.kbm file in the project; plus A4 reference, root key and key mapping. off returns to 12-TET (track: follows the song). Note-level detune is add_notes cents.",
+    "Set the song tuning (or one track's): library name, n-EDO, ratios, cents or a Scala file, plus A4, root and mapping; off returns to 12-TET.",
   parameters: {
     type: "object",
     properties: {
@@ -258,7 +258,7 @@ const SET_TUNING: AgentTool = {
 const SET_SCALE: AgentTool = {
   name: "set_scale",
   description:
-    "Set the song key and scale: a church mode, harmonic or melodic minor, pentatonic, blues, maqam (hijaz, bayati), raga (yaman, bhairav, kafi…) or a Messiaen mode. Chords, play-mode keys and scale snapping follow it. Scales with microtones or just intonation pair with set_tuning name=<scale>.",
+    "Set the song key and scale (modes, minors, pentatonic, blues, maqam, raga, Messiaen); chords, keys and snapping follow it.",
   parameters: {
     type: "object",
     properties: {
