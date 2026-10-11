@@ -17,6 +17,19 @@ test("every committed screen has a scene and every scene a screen", () => {
   expect(files).toEqual(SCENES.map((scene) => scene.id).sort());
 });
 
+test("the README's patch screen is the committed capture", () => {
+  const readme = readFileSync(
+    new URL("../../README.md", import.meta.url),
+    "utf8",
+  );
+  const screen = JSON.parse(
+    readFileSync(screenPath("patch"), "utf8"),
+  ) as ScreenFile;
+  expect(readme).toContain(
+    `\`\`\`text\n${screenText(screen).join("\n")}\n\`\`\``,
+  );
+});
+
 test.skipIf(!supported)(
   "the docs screens match the TUI (bun run screens refreshes them)",
   async () => {

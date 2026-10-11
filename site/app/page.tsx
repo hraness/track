@@ -269,8 +269,37 @@ export default async function Home() {
         </Feature>
 
         <Feature
-          id="menu-title"
+          id="patch-title"
           index="05"
+          label="Patches"
+          heading="Build a sound from modules"
+          screens={["patch"]}
+        >
+          <p>
+            A patch is a small modular synth or effect: oscillators, filters,
+            envelopes and math, plus dawg&rsquo;s own engines and effects as
+            nodes, joined by cables. <code>/patch</code> shows the focused
+            track&rsquo;s nodes in signal order, the ports of the selected one
+            and a cable matrix. <code>a</code> adds a node, <code>w</code> wires
+            it and <code>m</code> maps a parameter to a knob; each key runs a
+            typed <code>patch</code> command and echoes it. The first four
+            macros are the four knobs.
+          </p>
+          <p>
+            Eight patches ship built in, such as <code>acid-bass</code>,{" "}
+            <code>fm-bell</code> and the <code>sidechain-pump</code> effect.{" "}
+            <code>patch save mybass --user</code> keeps one in your library and{" "}
+            <code>patch load github:user/repo/name</code> fetches one pinned by
+            hash. The agent edits patches with the same commands, and{" "}
+            <code>song.ts</code> builds them with <code>patch()</code> and
+            Strudel-style signals such as{" "}
+            <code>sine.range(300, 2400).slow(4)</code>.
+          </p>
+        </Feature>
+
+        <Feature
+          id="menu-title"
+          index="06"
           label="Menu"
           heading="Ctrl-K opens every control"
           screens={["menu"]}
@@ -289,7 +318,7 @@ export default async function Home() {
 
         <Feature
           id="styles-title"
-          index="06"
+          index="07"
           label="Styles and voice"
           heading="Start from a style, add a singer"
         >
@@ -309,7 +338,7 @@ export default async function Home() {
 
         <Feature
           id="agent-title"
-          index="07"
+          index="08"
           label="Agent"
           heading="Watch the agent type its commands"
           screens={["showme", "agent"]}
@@ -336,7 +365,7 @@ export default async function Home() {
 
         <Feature
           id="panes-title"
-          index="08"
+          index="09"
           label="Panes"
           heading="One song in several terminals"
           screens={["panes"]}
@@ -356,7 +385,7 @@ export default async function Home() {
 
         <Feature
           id="files-title"
-          index="09"
+          index="10"
           label="Project files"
           heading="Songs are typed TypeScript"
         >
@@ -372,7 +401,7 @@ export default async function Home() {
 
         <Feature
           id="local-title"
-          index="10"
+          index="11"
           label="Offline"
           heading="Offline, low-latency, exact renders"
           screens={["audio"]}
@@ -398,7 +427,7 @@ export default async function Home() {
         >
           <SectionHead
             id="install-title"
-            index="11"
+            index="12"
             label="Get started"
             heading="Install"
           >
@@ -458,7 +487,7 @@ export default async function Home() {
         <section className="dawg-section" aria-labelledby="faq-title">
           <SectionHead
             id="faq-title"
-            index="12"
+            index="13"
             label="FAQ"
             heading="Questions"
           />

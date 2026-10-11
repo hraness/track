@@ -46,6 +46,7 @@ Only what `README.md`, `DAWG.md` and `CHANGELOG.md` on `main` describe:
 - Auto-claim of the next instrument per window; draft track beyond the last.
 - Named sessions, `/rename`, numbered `/fork`, `/sessions`, `/resume`, auto-naming from a local fingerprint.
 - `dawg model key` (AI Gateway, OpenRouter, or a Claude or ChatGPT/Codex subscription through xcb), `dawg model`, `dawg auth status`, `dawg logout`. Default model `opus-5.5`.
+- Patches (`/patch`): modular instruments and effects built from nodes and cables, with four macro knobs and eight built-ins.
 - TAPE (Ctrl-T) for ranges of bars; panes (one song in several terminals, a letter each); play mode (Ctrl-P) and recording; show-me (the agent types the commands it runs).
 - Strudel-format sample packs (`/pack add`), read from the documented manifest format without Strudel code.
 - Themes default, high-contrast and mono; reduced motion; `NO_COLOR`.
