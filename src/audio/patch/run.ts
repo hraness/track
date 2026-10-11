@@ -65,6 +65,12 @@ export type BufferIo = Readonly<{
   node: BufferNode;
   /** Cable sums per input port (audio and control), undefined when unwired. */
   inputs: Readonly<Record<string, Float64Array | undefined>>;
+  /**
+   * Knob values per control port with a macro on it, one per 32-sample
+   * block, already mapped onto the port's range; the port's own value
+   * (`node.params`) applies where absent. Cables add on top.
+   */
+  bases?: Readonly<Record<string, Float64Array | undefined>>;
   /** Output buffers to fill, per output port (length `frames`). */
   outputs: Readonly<Record<string, Float64Array>>;
   frames: number;
@@ -468,9 +474,43 @@ export function runPatch(
     const node = program.buffers.find((b) => b.id === g.ids[n])!;
     const ins: Record<string, Float64Array | undefined> = {};
     const start = g.inStart[n]!;
+    const bases: Record<string, Float64Array | undefined> = {};
     node.spec.inputs.forEach((port, j) => {
       const r = (start + j) * INPUT_WIDTH;
       const count = g.inputs[r + F.CableCount]!;
+      const baseKind = g.inputs[r + F.BaseKind]!;
+      const bi = g.inputs[r + F.BaseIndex]!;
+      if (
+        port.kind === "control" &&
+        (baseKind === Base.External || (baseKind === Base.Slot && bi >= 0))
+      ) {
+        const mp = g.inputs[r + F.Map]!;
+        const cl = g.inputs[r + F.Clamp]!;
+        const k = program.consts;
+        const lo = cl >= 0 ? k[cl]! : -Infinity;
+        const hi = cl >= 0 ? k[cl + 1]! : Infinity;
+        const values = new Float64Array(blocks);
+        for (let b = 0; b < blocks; b += 1) {
+          let raw: number;
+          if (baseKind === Base.External) {
+            setExt(b);
+            raw = ctx.ext[bi]!;
+          } else raw = gm[bi * stride + Math.min(frames - 1, b * BLOCK)]!;
+          const v =
+            mp >= 0
+              ? mapMacro(
+                  raw,
+                  k[mp]!,
+                  k[mp + 1]!,
+                  k[mp + 2]! === 1,
+                  k[mp + 3]!,
+                  k[mp + 4]!,
+                )
+              : raw;
+          values[b] = v < lo ? lo : v > hi ? hi : v;
+        }
+        bases[port.name] = values;
+      }
       if (port.kind === "notes" || count === 0) return;
       const sum = new Float64Array(frames);
       const c0 = g.inputs[r + F.CableStart]! * 2;
@@ -489,7 +529,14 @@ export function runPatch(
     });
     if (!options.buffer)
       throw new Error(`node ${node.id}: no handler for ${node.type}`);
-    options.buffer({ node, inputs: ins, outputs: outs, frames, sampleRate });
+    options.buffer({
+      node,
+      inputs: ins,
+      bases,
+      outputs: outs,
+      frames,
+      sampleRate,
+    });
     for (const buf of Object.values(outs))
       for (let i = 0; i < frames; i += 1) {
         const v = buf[i]!;

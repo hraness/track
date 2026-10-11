@@ -1026,6 +1026,28 @@ function buildProgram(
                 c.amount === undefined ? one : constant(c.amount),
               );
             record[F.CableCount] = list.length;
+            // A knob on an engine or effect setting: the handler reads its
+            // mapped value per block (run.ts `runBuffer` → `io.bases`).
+            const base = p.kind === "control" ? flat.bases.get(ref) : undefined;
+            record[F.BaseKind] = Base.Const;
+            if (base) {
+              record[F.Map] = constant(base.macro.min);
+              constant(base.macro.max);
+              constant(base.macro.curve === "exp" ? 1 : 0);
+              constant(base.min ?? Number.NaN);
+              constant(base.max ?? Number.NaN);
+              if (base.kind === Base.External) {
+                record[F.BaseKind] = Base.External;
+                record[F.BaseIndex] = base.index;
+              } else if (base.kind === Base.Slot && nodes.has(base.node)) {
+                record[F.BaseKind] = Base.Slot;
+                record[F.BaseIndex] = baseSlot(base.node);
+              } else record[F.Map] = -1;
+            }
+            if (p.spec && record[F.BaseKind] !== Base.Const) {
+              record[F.Clamp] = constant(p.spec.min);
+              constant(p.spec.max);
+            }
           }
         } else if (p.kind === "audio") {
           if (list.length === 1 && (list[0]!.amount ?? 1) === 1) {
