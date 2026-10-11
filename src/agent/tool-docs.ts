@@ -65,6 +65,29 @@ export const AGENT_TOOL_DOCS: Readonly<Record<string, AgentToolDoc>> =
       details:
         "Replace one exact occurrence of old with new in a writable file (same scope as write_file). old must match exactly once; otherwise the result tells you the count. Prefer this over many note tools for large edits or restructuring of tracks/<slug>/track.ts.",
     },
+    glob: {
+      details:
+        "Patterns match paths relative to path: tracks/*/track.ts, **/*.wav, samples/**. An absolute path inside a read root (.dawg/agent.json readRoots, set by the human) searches there, read-only. Results page with cursor; a scan stops at 20 000 entries.",
+      example: { pattern: "tracks/**/*.wav" },
+    },
+    grep: {
+      details:
+        "pattern is a JavaScript regular expression tested per line; files over 1 MiB and binary files are skipped. glob filters by file name (*.ts) or, with a slash, by path. Page with cursor when the result says more.",
+      example: { pattern: "setInstrument\\(", glob: "*.ts" },
+    },
+    inspect: {
+      details:
+        "The cheap way to look closely without growing the brief. score: tempo, meter, sections and one line per track (instrument, notes, bars used, range, level), about 1.5 KiB. track: the track's non-default settings with automation lanes as point counts. notes: id pitch bar.beat beats vel, 32 per page, bars \"5-8\" narrows. mix: levels, pan, sends and fx per track plus the master. sections: bars, mutes, form and loop. patch: a library patch's nodes, cables and macros, or the patch a track plays. sample: format, rate, channels, length, peak and RMS of a project or read-root WAV. Results that page end with (N more; cursor=K); pass cursor to continue.",
+      example: { what: "notes", target: "bass", bars: "1-4" },
+    },
+    move_file: {
+      details:
+        "Both paths must be writable (the whole project except .dawg/, .git/, node_modules/; a dispatch task only its files). The target must not exist. Moving a track.ts reloads the project like a write.",
+    },
+    delete_file: {
+      details:
+        "The file is copied to .dawg/trash/<time>/<path> before it is removed; that copy is the recovery (there is no file-level undo). Score changes from deleting a track source are undoable as score edits.",
+    },
     set_rhythm: {
       details:
         "Preferred for drums: one row per voice of a kit/oneshot track; its notes regenerate from the row. pulses (4) over steps (16..64) Euclidean, rotate later; division 1/32..1/1 (1/16) is one step, and the steps×division cycle repeats from beat 0 to fill the loop (E(4,16) at 1/16 = a hit every beat, four on the floor; a backbeat on counts 2 and 4 is grid '....x.......x...' or E(2,16) rotate 4; offbeat 'and's are grid '..x.' ); grid 'x.X.' explicit (X accent); repeats 0..16 after each pulse every time, pace -1..1, ramp -1..1; velocity (0.8); accent 0..1 on E(accents,pulses); gate; legato; probability+seed; swing/nudge ±0.5 step; cycles [{pulses,rotate,repeats,probability,velocity}] per pass. remove [voices] (freeze keeps notes).",

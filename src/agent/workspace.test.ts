@@ -127,39 +127,101 @@ describe("path policy", () => {
     expect(await readdir(outside)).toEqual(["secret.txt"]);
   });
 
-  test("rejects a symlinked track directory that points at another track", async () => {
+  test("a symlinked track directory writes through to its real track", async () => {
     await symlink(join(root, "tracks/drums"), join(root, "tracks/keys"));
+    // Both are inside the project, so the write lands on the real path.
+    expect(
+      (await resolveWritePath({ root, trackSlug: "keys" }, "tracks/keys/n.md"))
+        .rel,
+    ).toBe("tracks/keys/n.md");
+    const sub: WorkspaceScope = {
+      root,
+      trackSlug: "keys",
+      writeGlobs: ["tracks/keys/**"],
+    };
     await rejects(
-      resolveWritePath({ root, trackSlug: "keys" }, "tracks/keys/track.ts"),
-      /outside this window's writable scope/,
+      resolveWritePath(sub, "tracks/keys/track.ts"),
+      /outside this task's writable scope/,
     );
   });
 
-  test("scopes writes to song.ts and the focused track directory", async () => {
-    expect(writeRoots(scope)).toEqual(["song.ts", "tracks/bass/"]);
-    expect((await resolveWritePath(scope, "song.ts")).rel).toBe("song.ts");
-    expect((await resolveWritePath(scope, "tracks/bass/notes.md")).rel).toBe(
+  test("writes cover the project except the denylist", async () => {
+    expect(writeRoots(scope)).toEqual([
+      "the project except .dawg/, .git/ and node_modules/",
+    ]);
+    for (const rel of [
+      "song.ts",
       "tracks/bass/notes.md",
-    );
-    expect(
-      (await resolveWritePath(scope, "tracks/bass/samples/kick.wav")).rel,
-    ).toBe("tracks/bass/samples/kick.wav");
-    await rejects(
-      resolveWritePath(scope, "tracks/drums/track.ts"),
-      /may write song\.ts and tracks\/bass\//,
-    );
-    await rejects(resolveWritePath(scope, "dawg.json"), /writable scope/);
-    await rejects(
-      resolveWritePath(scope, "tracks/bassline/track.ts"),
-      /writable scope/,
-    );
+      "tracks/drums/track.ts",
+      "dawg.json",
+      "lib/util.ts",
+      "notes/ideas.md",
+      "samples/kick.wav",
+    ])
+      expect((await resolveWritePath(scope, rel)).rel).toBe(rel);
+    for (const rel of [
+      ".dawg/session",
+      ".DAWG/session",
+      ".Dawg/agent.json",
+      ".git/config",
+      ".GIT/HEAD",
+      "node_modules/x/index.js",
+      "Node_Modules/x.js",
+    ])
+      await rejects(
+        resolveWritePath(scope, rel),
+        /\.dawg\/|which the file tools do not touch/i,
+      );
     await mkdir(join(root, "tracks/bass/samples"), { recursive: true });
     await rejects(
       resolveWritePath(scope, "tracks/bass/samples"),
       /is a directory/,
     );
-    await rejects(resolveWritePath(scope, "tracks/bass"), /writable scope/);
     await rejects(resolveWritePath(scope, ""), /writable scope/);
+  });
+
+  test("reads refuse .git/ and node_modules/ but allow .dawg/logs/", async () => {
+    await mkdir(join(root, ".git"), { recursive: true });
+    await Bun.write(join(root, ".git/config"), "[core]\n");
+    await mkdir(join(root, ".dawg/logs"), { recursive: true });
+    await Bun.write(join(root, ".dawg/logs/exec.log"), "ran\n");
+    await rejects(resolveReadPath(scope, ".git/config"), /do not touch/);
+    await rejects(resolveReadPath(scope, ".GIT/config"), /do not touch/);
+    expect((await resolveReadPath(scope, ".dawg/logs/exec.log")).rel).toBe(
+      ".dawg/logs/exec.log",
+    );
+    await rejects(resolveWritePath(scope, ".dawg/logs/exec.log"), /\.dawg\//);
+  });
+
+  test("after untrusted content, code outside tracks/ is read-only", async () => {
+    const tainted: WorkspaceScope = { ...scope, untrusted: true };
+    await rejects(writeFile(tainted, "song.ts", "x"), /untrusted content/);
+    await rejects(writeFile(tainted, "lib/new.ts", "x"), /untrusted content/);
+    await rejects(writeFile(tainted, "lib/new.MJS", "x"), /untrusted content/);
+    await writeFile(tainted, "tracks/bass/track.ts", "// ok\n");
+    await writeFile(tainted, "notes/web.md", "ref\n");
+  });
+
+  test("read roots are read-only and realpath confined", async () => {
+    const library = await realpath(await mkdtemp(join(tmpdir(), "dawg-lib-")));
+    await Bun.write(join(library, "kick.txt"), "boom\n");
+    await symlink(join(outside, "secret.txt"), join(library, "leak.txt"));
+    const withRoots: WorkspaceScope = { ...scope, readRoots: [library] };
+    const kick = await resolveReadPath(withRoots, join(library, "kick.txt"));
+    expect(kick.rel).toBe(join(library, "kick.txt"));
+    await rejects(
+      resolveReadPath(withRoots, join(library, "leak.txt")),
+      /leaves its read root/,
+    );
+    await rejects(
+      resolveReadPath(scope, join(library, "kick.txt")),
+      /outside the project|leaves the project/,
+    );
+    await rejects(
+      resolveWritePath(withRoots, join(library, "new.txt")),
+      /outside|leaves/,
+    );
+    await rm(library, { recursive: true, force: true });
   });
 });
 
@@ -307,10 +369,8 @@ describe("write_file", () => {
       ),
       /write limit is 1 MiB/,
     );
-    await rejects(
-      writeFile(scope, "tracks/drums/track.ts", "x"),
-      /writable scope/,
-    );
+    await rejects(writeFile(scope, ".dawg/x", "x"), /\.dawg\//);
+    await rejects(writeFile(scope, "tracks/bass/b.bin", "a\0b"), /NUL bytes/);
     await rejects(
       writeFile(scope, "tracks/bass/x.txt", 7),
       /content must be a string/,
@@ -360,10 +420,7 @@ describe("edit_file", () => {
       editFile(scope, "tracks/bass/missing.md", "a", "b"),
       /no such file; use write_file/,
     );
-    await rejects(
-      editFile(scope, "tracks/drums/track.ts", "t-drums", "x"),
-      /writable scope/,
-    );
+    await rejects(editFile(scope, ".git/config", "a", "b"), /do not touch/);
     expect(await fsRead(join(root, "tracks/bass/notes.md"), "utf8")).toBe(
       "a b a\n",
     );
@@ -424,9 +481,9 @@ describe("dispatch write globs", () => {
     await writeFile(sub, "tracks/drums/notes.md", "kick on 1\n");
     await rejects(
       writeFile(sub, "tracks/bass/notes.md", "x"),
-      /outside this window's writable scope; it may write tracks\/drums\/\*\* and notes\/\*\.md/,
+      /outside this task's writable scope; it may write tracks\/drums\/\*\* and notes\/\*\.md/,
     );
-    await rejects(writeFile(sub, "song.ts", "x"), /outside this window/);
+    await rejects(writeFile(sub, "song.ts", "x"), /outside this task/);
     expect(writeRoots(sub)).toEqual(["tracks/drums/**", "notes/*.md"]);
   });
 });

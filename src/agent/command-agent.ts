@@ -20,6 +20,7 @@ import {
   WORKSPACE_PROMPT,
   classifyAgentError,
   executeCall,
+  type TurnState,
   hostProjectOutline,
   tighten,
   turnDeadline,
@@ -146,6 +147,7 @@ export async function runCommandAgentTurn(
     allTools.filter((tool) => COMMAND_MODE_TOOL_NAMES.has(tool.name)),
   );
   const turnId = options.turnId ?? newId("turn");
+  const turnState: TurnState = { untrusted: false };
   const newNoteId =
     options.newNoteId ??
     ((trackId: string, _revision: number, _index: number) => newId(trackId));
@@ -326,6 +328,7 @@ export async function runCommandAgentTurn(
           emit({ type: "tool-start", callId: call.id, name: call.name, step });
           const outcome = await executeCall(call, {
             turnId,
+            turnState,
             tools: allTools,
             host: options.host,
             newNoteId,

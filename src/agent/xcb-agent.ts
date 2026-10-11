@@ -8,6 +8,7 @@ import {
   DISPATCH_PROMPT,
   classifyAgentError,
   executeCall,
+  type TurnState,
   hostProjectOutline,
   tighten,
   turnDeadline,
@@ -131,6 +132,7 @@ export async function runTextAgentTurn(
   const tools = options.tools ?? AGENT_TOOLS;
   const catalog = renderToolCatalog(tools);
   const turnId = options.turnId ?? newId("turn");
+  const turnState: TurnState = { untrusted: false };
   const newNoteId =
     options.newNoteId ??
     ((trackId: string, _revision: number, _index: number) => newId(trackId));
@@ -245,6 +247,7 @@ export async function runTextAgentTurn(
           { id: callId, name: op.tool, arguments: JSON.stringify(op.args) },
           {
             turnId,
+            turnState,
             tools,
             host: options.host,
             newNoteId,

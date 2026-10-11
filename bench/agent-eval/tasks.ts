@@ -2149,7 +2149,7 @@ const recovery: EvalTask[] = [
     id: "write-outside-scope",
     tier: "recovery",
     prompt:
-      "Add a G2 half note at beat 2 on the bass track. (The file tools can only write the focused track, so use whatever works.)",
+      "Add a G2 half note at beat 2 on the bass track. (Its source file may not say what you expect, so use whatever works.)",
     setup: bandSetup("lead"),
     grade: (ctx) => [
       check(
@@ -2168,8 +2168,8 @@ const recovery: EvalTask[] = [
       [
         call("edit_file", {
           path: "tracks/bass/track.ts",
-          old: 'note("C2", 0, 2)',
-          new: 'note("C2", 0, 2), note("G2", 2, 2)',
+          old: 'note("C2", 0, 4)',
+          new: 'note("C2", 0, 4), note("G2", 2, 2)',
         }),
       ],
       [notesCall("bass", [["G2", 2, 2]])],

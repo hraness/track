@@ -98,6 +98,7 @@ import {
 import type { ChatTool } from "./gateway.ts";
 import { MEDIA_TOOLS } from "../media/tools.ts";
 import { DISPATCH_TOOLS } from "./dispatch-tool.ts";
+import { INSPECT_TOOLS } from "./inspect-tools.ts";
 import type { SubagentTask } from "./subagent-tasks.ts";
 import { PACK_TOOLS, PackToolError } from "./pack-tools.ts";
 import {
@@ -141,6 +142,13 @@ import {
   writeFile,
   type WorkspaceScope,
 } from "./workspace.ts";
+import {
+  deleteFile,
+  FILE_TOOL_LIMITS,
+  globFiles,
+  grepFiles,
+  moveFile,
+} from "./file-tools.ts";
 import {
   fetchUrl,
   FETCH_LIMITS,
@@ -218,6 +226,8 @@ export type WorkspaceHost = Readonly<{
   root: string;
   /** A dispatch subagent's only writable globs (see WorkspaceScope). */
   writeGlobs?: readonly string[];
+  /** Realpaths of read-only roots outside the project; default from `.dawg/agent.json`. */
+  readRoots?: readonly string[];
 }>;
 
 /** Injection points for the web tools; defaults are the real network. */
@@ -245,6 +255,8 @@ export type WebHost = Readonly<{
 /** What an `action` plan receives from the host when it runs. */
 export type ActionContext = Readonly<{
   workspace?: WorkspaceHost;
+  /** Untrusted content was seen this turn: code writes are refused. */
+  untrusted?: boolean;
   /**
    * Called after a successful `write_file`/`edit_file` with the
    * project-relative path. Returned text (for example typecheck
@@ -1876,7 +1888,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   },
   {
     name: "write_file",
-    description: `Create or replace a file atomically with the full content (at most ${WORKSPACE_LIMITS.maxWriteBytes / 1024 / 1024} MiB). Writable: song.ts and the focused track's tracks/<slug>/ directory, where notes.md is your scratchpad. Parent directories are created.`,
+    description: `Create or replace a file atomically with the full content (at most ${WORKSPACE_LIMITS.maxWriteBytes / 1024 / 1024} MiB). Writable: the project except .dawg/, .git/ and node_modules/ (a dispatch task: only its files); tracks/<slug>/notes.md is your scratchpad. Parent directories are created.`,
     parameters: {
       type: "object",
       properties: {
@@ -1937,6 +1949,151 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
         run: async (action) => {
           const scope = workspaceScope(action, context);
           const result = await editFile(scope, path, oldText, newText);
+          return {
+            content: await afterWrite(action, result.rel, result.text),
+            summary: result.summary,
+            mutated: true,
+          };
+        },
+      };
+    },
+  },
+  {
+    name: "glob",
+    description:
+      "Find files by glob (** any depth, * within a name), relative to path (default the project, or an absolute read root). Paged; .dawg/, .git/, node_modules/ skipped.",
+    parameters: {
+      type: "object",
+      properties: {
+        pattern: {
+          type: "string",
+          maxLength: FILE_TOOL_LIMITS.maxPatternChars,
+        },
+        path: pathSchema("Directory to search (default the project)"),
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: FILE_TOOL_LIMITS.maxGlobResults,
+        },
+        cursor: { type: "integer", minimum: 0 },
+      },
+      required: ["pattern"],
+      additionalProperties: false,
+    },
+    plan(args, context) {
+      const pattern = requiredString(args, "pattern");
+      return {
+        kind: "action",
+        summary: `glob ${pattern}`,
+        run: async (action) => {
+          const result = await globFiles(workspaceScope(action, context), {
+            pattern,
+            path: optionalPath(args),
+            ...pageArgs(args),
+          });
+          return { content: result.text, summary: result.summary };
+        },
+      };
+    },
+  },
+  {
+    name: "grep",
+    description:
+      "Search text files for a regular expression; returns file:line: text, paged. glob narrows the files (e.g. *.ts).",
+    parameters: {
+      type: "object",
+      properties: {
+        pattern: {
+          type: "string",
+          maxLength: FILE_TOOL_LIMITS.maxPatternChars,
+        },
+        path: pathSchema("File or directory (default the project)"),
+        glob: { type: "string", maxLength: FILE_TOOL_LIMITS.maxPatternChars },
+        ignoreCase: { type: "boolean" },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: FILE_TOOL_LIMITS.maxGrepResults,
+        },
+        cursor: { type: "integer", minimum: 0 },
+      },
+      required: ["pattern"],
+      additionalProperties: false,
+    },
+    plan(args, context) {
+      const pattern = requiredString(args, "pattern");
+      if (args.glob !== undefined && typeof args.glob !== "string")
+        throw new ToolArgumentError("glob must be a string");
+      return {
+        kind: "action",
+        summary: `grep ${pattern.slice(0, 40)}`,
+        run: async (action) => {
+          const result = await grepFiles(workspaceScope(action, context), {
+            pattern,
+            path: optionalPath(args),
+            ...(args.glob !== undefined ? { glob: args.glob } : {}),
+            ...(args.ignoreCase === true ? { ignoreCase: true } : {}),
+            ...pageArgs(args),
+          });
+          return { content: result.text, summary: result.summary };
+        },
+      };
+    },
+  },
+  {
+    name: "move_file",
+    description:
+      "Move or rename a project file inside the writable scope; never overwrites an existing target.",
+    parameters: {
+      type: "object",
+      properties: {
+        from: pathSchema("Project-relative file"),
+        to: pathSchema("New project-relative path"),
+      },
+      required: ["from", "to"],
+      additionalProperties: false,
+    },
+    plan(args, context) {
+      const from = requiredString(args, "from");
+      const to = requiredString(args, "to");
+      return {
+        kind: "action",
+        summary: `move ${from}`,
+        run: async (action) => {
+          const result = await moveFile(
+            workspaceScope(action, context),
+            from,
+            to,
+          );
+          return {
+            content: await afterWrite(action, result.to, result.text),
+            summary: result.summary,
+            mutated: true,
+          };
+        },
+      };
+    },
+  },
+  {
+    name: "delete_file",
+    description:
+      "Delete a project file inside the writable scope; a copy goes to .dawg/trash/ first.",
+    parameters: {
+      type: "object",
+      properties: { path: pathSchema("Project-relative file") },
+      required: ["path"],
+      additionalProperties: false,
+    },
+    plan(args, context) {
+      const path = requiredPath(args);
+      return {
+        kind: "action",
+        summary: `delete ${path}`,
+        run: async (action) => {
+          const result = await deleteFile(
+            workspaceScope(action, context),
+            path,
+          );
           return {
             content: await afterWrite(action, result.rel, result.text),
             summary: result.summary,
@@ -2063,6 +2220,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   // 0.7 Voice: one array per lane in voice-tools.ts.
   ...VOICE_TOOLS,
   ...DISPATCH_TOOLS,
+  ...INSPECT_TOOLS,
   // Looks tools up at call time, so it can plan any of the above.
   previewSoundTool((name) => findAgentTool(name)),
 ] satisfies AgentTool[]);
@@ -2122,6 +2280,10 @@ function workspaceScope(
     ...(action.workspace.writeGlobs
       ? { writeGlobs: action.workspace.writeGlobs }
       : {}),
+    ...(action.workspace.readRoots
+      ? { readRoots: action.workspace.readRoots }
+      : {}),
+    ...(action.untrusted ? { untrusted: true } : {}),
   };
 }
 
@@ -2131,6 +2293,29 @@ function pathSchema(description: string) {
     maxLength: WORKSPACE_LIMITS.maxPathChars,
     description,
   };
+}
+
+function requiredString(args: Record<string, unknown>, key: string): string {
+  const value = args[key];
+  if (typeof value !== "string" || value.length === 0)
+    throw new ToolArgumentError(`${key} must be a non-empty string`);
+  return value;
+}
+
+/** limit and cursor for the paged read tools. */
+function pageArgs(args: Record<string, unknown>): {
+  limit?: number;
+  cursor?: number;
+} {
+  const out: { limit?: number; cursor?: number } = {};
+  for (const key of ["limit", "cursor"] as const) {
+    const value = args[key];
+    if (value === undefined) continue;
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 0)
+      throw new ToolArgumentError(`${key} must be a non-negative integer`);
+    out[key] = value;
+  }
+  return out;
 }
 
 function requiredPath(args: Record<string, unknown>): string {

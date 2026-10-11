@@ -775,7 +775,7 @@ describe("workspace and web tools in the loop", () => {
     return root;
   }
 
-  test("reads, searches, then edits the focused track file and reports the hook", async () => {
+  test("reads, searches, edits a track file, refuses code after web text, reports the hook", async () => {
     const root = await project();
     try {
       const ddg = await readFile(
@@ -800,9 +800,9 @@ describe("workspace and web tools in the loop", () => {
             new: "volume: 0.8, send: { reverb: 0.3 }",
           }),
           ...toolCallChunks(1, "e2", "edit_file", {
-            path: "tracks/other/track.ts",
-            old: "// other",
-            new: "// hacked",
+            path: "song.ts",
+            old: "song({})",
+            new: "song({ hacked: true })",
           }),
           ...toolCallChunks(2, "w1", "write_file", {
             path: "tracks/main/notes.md",
@@ -854,8 +854,9 @@ describe("workspace and web tools in the loop", () => {
       expect(await readFile(join(root, "tracks/main/track.ts"), "utf8")).toBe(
         'export default track({ id: "main", volume: 0.8, send: { reverb: 0.3 } });\n',
       );
-      expect(await readFile(join(root, "tracks/other/track.ts"), "utf8")).toBe(
-        "// other\n",
+      // song.ts is code; after web_search this turn it is read-only.
+      expect(await readFile(join(root, "song.ts"), "utf8")).toBe(
+        "export default song({});\n",
       );
       expect(
         await readFile(join(root, "tracks/main/notes.md"), "utf8"),
@@ -879,7 +880,7 @@ describe("workspace and web tools in the loop", () => {
       ]);
       const rejected = events.find((e) => e.type === "tool-rejected");
       expect(rejected?.type === "tool-rejected" && rejected.diagnostic).toBe(
-        "tracks/other/track.ts is outside this window's writable scope; it may write song.ts and tracks/main/ (reads work anywhere except .dawg/)",
+        "song.ts: untrusted content seen this turn; ask the user and continue next turn",
       );
       // The first brief carries the project tree and the notes head.
       const first = script.requests[0]!.body as {
