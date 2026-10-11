@@ -311,7 +311,7 @@ export class PlaySession {
   ) {
     this.trackId = host.trackId();
     const track = this.trackData();
-    this.layout = playLayoutFor(track);
+    this.layout = playLayoutFor(track, this.host.score().calibration ?? 0);
     const settings = options.chords ?? defaultChordSettings();
     // Auto chords by default on chord-capable tracks, until chosen by hand.
     // Diatonic triads assume 12-TET and a polyphonic part: a track in
@@ -1358,6 +1358,9 @@ export class PlaySession {
         : this.chords.glance(songKey(this.host.score().key).set),
       status: this.status,
       keys: this.strip(now),
+      sounds: this.layout.labels.size > 0,
+      octave: this.keyboard.range,
+      countInBars: this.countInBars,
       legend:
         this.chords.on && !this.layout.drums ? this.chords.legend() : undefined,
     };
@@ -1401,10 +1404,10 @@ export class PlaySession {
   private noteCell(cell: PlayStripKey): PlayStripKey {
     return {
       ...cell,
-      // Octave digits only on C keep 18 keys inside 80 columns.
+      // Octave digits only on the root (C, or the tonic in scale degrees):
+      // the anchor reads at a glance and the other labels stay short.
       label:
-        this.layout.labels.size > 0 ||
-        (cell.label.startsWith("C") && !cell.label.startsWith("C#"))
+        this.layout.labels.size > 0 || cell.root || cell.unmapped
           ? cell.label
           : cell.label.replace(/-?\d+$/, ""),
     };

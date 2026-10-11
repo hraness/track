@@ -87,12 +87,13 @@ test.skipIf(!supported)(
       await t.until(() => t.vt.text().includes("✓ track · drums"), "kit");
       await t.send("\u0010");
       await t.until(() => t.vt.text().includes("PLAY MODE"), "play mode");
+      await t.until(() => t.vt.text().includes(" kick snr "), "drum keys");
       const text = t.vt.text();
-      expect(text).toContain("A kick");
-      expect(text).toContain("S snare");
+      // Kick and snare under A and S, on the home row.
+      expect(text).toMatch(/^ A +S +D /m);
       expect(text).toContain("play mode · drums · kit");
       expect(text).not.toContain("drums · drums");
-      expect(text).not.toMatch(/A C2\b/);
+      expect(text).not.toMatch(/^ C2 /m);
       await t.send("\u001b");
     } finally {
       t.terminal.write("\u0003");

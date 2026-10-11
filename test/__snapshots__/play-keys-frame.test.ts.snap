@@ -1,0 +1,41 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`play keyboard frame at 80×24 notes · unicode 1`] = `
+[
+  "    W    E         T    Y    U         O    P             z x  oct C3–F4",
+  "    C#   D#        F#   G#   A#        C#   D#            c v  vel 100",
+  " A    S•   D    F    G    H    J•   K    L    ;    '      m    click on",
+  " C3   D    E    F    G    A    B    C4   D    E    F      r    ● rec armed",
+  "                                                               count-in 1 bar",
+]
+`;
+
+exports[`play keyboard frame at 80×24 notes · ascii 1`] = `
+[
+  "    W    E         T    Y    U         O    P             z x  oct C3-F4",
+  "    C#   D#        F#   G#   A#        C#   D#            c v  vel 100",
+  " A    S*   D    F    G    H    J*   K    L    ;    '      m    click on",
+  " C3   D    E    F    G    A    B    C4   D    E    F      r    * rec armed",
+  "                                                               count-in 1 bar",
+]
+`;
+
+exports[`play keyboard frame at 80×24 drums · unicode 1`] = `
+[
+  "    W    E         T    Y    U         O    P             z x  oct C2–F3",
+  "    rim  clap      chh  chh  ohh       crsh ride          c v  vel 100",
+  " A    S•   D    F    G    H    J•   K    L    ;    '      m    click on",
+  " kick snr  snr  tom1 tom2 tom3 tom4 tom5 tom6 crsh ride   r    ● rec armed",
+  "                                                               count-in 1 bar",
+]
+`;
+
+exports[`play keyboard frame at 80×24 drums · ascii 1`] = `
+[
+  "    W    E         T    Y    U         O    P             z x  oct C2-F3",
+  "    rim  clap      chh  chh  ohh       crsh ride          c v  vel 100",
+  " A    S*   D    F    G    H    J*   K    L    ;    '      m    click on",
+  " kick snr  snr  tom1 tom2 tom3 tom4 tom5 tom6 crsh ride   r    * rec armed",
+  "                                                               count-in 1 bar",
+]
+`;

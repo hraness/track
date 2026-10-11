@@ -14,17 +14,19 @@ export type DrumVoiceInfo = Readonly<{
   voice: DrumVoice;
   pitch: number;
   label: string;
+  /** Four columns at most: play mode prints it under the key. */
+  short: string;
 }>;
 
 /** Ordered left to right as highway lanes. */
 export const DRUM_VOICES: readonly DrumVoiceInfo[] = Object.freeze([
-  Object.freeze({ voice: "kick", pitch: 36, label: "kick" }),
-  Object.freeze({ voice: "snare", pitch: 38, label: "snare" }),
-  Object.freeze({ voice: "clap", pitch: 39, label: "clap" }),
-  Object.freeze({ voice: "rim", pitch: 37, label: "rim" }),
-  Object.freeze({ voice: "tom", pitch: 45, label: "tom" }),
-  Object.freeze({ voice: "hat", pitch: 42, label: "hat" }),
-  Object.freeze({ voice: "openhat", pitch: 46, label: "open" }),
+  Object.freeze({ voice: "kick", pitch: 36, label: "kick", short: "kick" }),
+  Object.freeze({ voice: "snare", pitch: 38, label: "snare", short: "snr" }),
+  Object.freeze({ voice: "clap", pitch: 39, label: "clap", short: "clap" }),
+  Object.freeze({ voice: "rim", pitch: 37, label: "rim", short: "rim" }),
+  Object.freeze({ voice: "tom", pitch: 45, label: "tom", short: "tom" }),
+  Object.freeze({ voice: "hat", pitch: 42, label: "hat", short: "chh" }),
+  Object.freeze({ voice: "openhat", pitch: 46, label: "open", short: "ohh" }),
 ] as const);
 
 export const DRUM_INSTRUMENTS = Object.freeze([
@@ -85,6 +87,17 @@ export function parseDrumVoice(value: string): DrumVoice | undefined {
 
 export function drumVoicePitch(voice: DrumVoice): number {
   return DRUM_VOICES.find((info) => info.voice === voice)!.pitch;
+}
+
+/**
+ * The voice a GM pitch names, aliases included, or undefined for a number
+ * the kit only plays by falling back to `rim`.
+ */
+export function drumVoiceNamed(pitch: number): DrumVoice | undefined {
+  return (
+    DRUM_VOICES.find((info) => info.pitch === pitch)?.voice ??
+    PITCH_ALIASES[pitch]
+  );
 }
 
 /** Any MIDI pitch resolves to a voice; unknown numbers play as `rim`. */

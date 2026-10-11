@@ -18,6 +18,10 @@ export type PlayStripKey = Readonly<{
   chord?: boolean | undefined;
   /** That chord is built on a degree of the song's key. */
   diatonic?: boolean | undefined;
+  /** A C, or the tonic in scale degrees: its label keeps the octave. */
+  root?: boolean | undefined;
+  /** Plays nothing (past a sampler's last slot, off the MIDI range). */
+  unmapped?: boolean | undefined;
 }>;
 
 export type PlayHeaderView = Readonly<{
@@ -49,6 +53,12 @@ export type PlayHeaderView = Readonly<{
   /** Short status (`octave C2`, `no audio`). */
   status?: string | undefined;
   keys: readonly PlayStripKey[];
+  /** Keys name sounds (a kit, a one-shot sampler) rather than notes. */
+  sounds?: boolean | undefined;
+  /** The keys' range at the current octave, kits included: `C2–F3`. */
+  octave?: string | undefined;
+  /** The count-in setting, in bars. */
+  countInBars?: number | undefined;
   /** Chord mode's number-row legend; latched entries are `on`. */
   legend?: readonly ChordLegendCell[] | undefined;
 }>;

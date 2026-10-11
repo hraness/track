@@ -32,8 +32,13 @@ import {
   type Track,
 } from "../../core/score.ts";
 import type { TuningTable } from "../../core/tuning.ts";
-import { DRUM_VOICES, isDrumInstrument } from "../../core/drums.ts";
+import {
+  DRUM_VOICES,
+  drumVoiceNamed,
+  isDrumInstrument,
+} from "../../core/drums.ts";
 import { pitchName } from "../../tui/highway.ts";
+import { metalKindForPitch, type MetalKind } from "../audio/kits.ts";
 
 /** Semitone offset from the base C for each note key. */
 export const WHITE_KEYS: Readonly<Record<string, number>> = Object.freeze({
@@ -121,14 +126,44 @@ export type PlayLayout = Readonly<{
 
 /**
  * A kit's keys on the GM map from C2 (36), the same keys the agent's
- * show-me gestures press: A kick, W rim, S snare, E clap, T hat, H tom,
- * U open hat. Other keys still sound their nearest drum, unlabeled.
+ * show-me gestures press: A kick, W rim, S and D snare, E clap, T and Y
+ * closed hat, U open hat, F G H J K L toms, and on a calibrated score
+ * (1+) O and ; crash, P and ' ride. Labels come from what the renderer
+ * plays for each pitch (`drumVoiceNamed`, then `metalKindForPitch`), so a
+ * key prints what it sounds; a pitch the kit only plays as its fallback
+ * click prints unlabeled.
  */
-export function drumKeyLabels(): ReadonlyMap<number, string> {
-  return new Map(DRUM_VOICES.map((info) => [info.pitch, info.label]));
+export function drumKeyLabels(calibrated = false): ReadonlyMap<number, string> {
+  const labels = new Map<number, string>();
+  for (let pitch = MIN_PITCH; pitch <= MAX_PITCH; pitch += 1) {
+    const metal = calibrated ? metalKindForPitch(pitch) : undefined;
+    if (metal) {
+      labels.set(pitch, METAL_SHORT[metal]);
+      continue;
+    }
+    const voice = drumVoiceNamed(pitch);
+    const info = DRUM_VOICES.find((entry) => entry.voice === voice);
+    if (info) labels.set(pitch, info.short);
+  }
+  // Calibrated toms are tuned by pitch (`tomRatio`): number them low to
+  // high so F…L read as a run of drums, not six of the same.
+  if (calibrated) {
+    const toms = [...labels].filter(([, label]) => label === "tom");
+    toms.forEach(([pitch], index) => labels.set(pitch, `tom${index + 1}`));
+  }
+  return labels;
 }
 
-export function playLayoutFor(track: Track | undefined): PlayLayout {
+const METAL_SHORT: Readonly<Record<MetalKind, string>> = Object.freeze({
+  crash: "crsh",
+  ride: "ride",
+  cowbell: "cowb",
+});
+
+export function playLayoutFor(
+  track: Track | undefined,
+  calibration = 0,
+): PlayLayout {
   const labels = new Map<number, string>();
   if (track && isSamplerInstrument(track.instrument) && track.sampler) {
     if (track.sampler.mode === "oneshot") {
@@ -143,7 +178,7 @@ export function playLayoutFor(track: Track | undefined): PlayLayout {
     return { base: clampBase(Math.floor(lowest / 12) * 12), labels };
   }
   if (track && isDrumInstrument(track.instrument))
-    return { base: 36, labels: drumKeyLabels(), drums: true };
+    return { base: 36, labels: drumKeyLabels(calibration >= 1), drums: true };
   // A plain instrument takes its range from the track's name (`bass`, `lead`).
   const byInstrument = defaultBaseFor(track?.instrument);
   const base =
@@ -553,6 +588,10 @@ export type StripCell = Readonly<{
   label: string;
   black: boolean;
   lit: boolean;
+  /** C, or the tonic in scale degrees. */
+  root?: boolean;
+  /** Plays nothing: no label from the kit or sampler, or off MIDI. */
+  unmapped?: boolean;
 }>;
 
 /** The keys in physical order across the two rows, for the strip. */
@@ -582,20 +621,30 @@ export function stripCells(
   lit: ReadonlySet<string>,
   labels: ReadonlyMap<number, string> = new Map(),
 ): StripCell[] {
-  const order = keyboard.degrees ? HOME_ROW : STRIP_ORDER;
-  return order.map((key) => {
+  const degrees = keyboard.degrees;
+  const order = degrees ? HOME_ROW : STRIP_ORDER;
+  return order.map((key, index) => {
     const pitch = keyboard.pitchFor(key);
-    const name =
+    const label =
       pitch === undefined
-        ? "·"
+        ? undefined
         : labels.size > 0
-          ? (labels.get(pitch) ?? "·")
+          ? labels.get(pitch)
           : pitchName(pitch);
+    // The anchor a player finds by eye: C, or the tonic in scale degrees.
+    const root =
+      label !== undefined &&
+      labels.size === 0 &&
+      (degrees
+        ? (keyboard.degreeOffset + index) % degrees.steps.length === 0
+        : pitch! % 12 === 0);
     return {
       key,
-      label: name,
+      label: label ?? "·",
       black: BLACK_KEYS[key] !== undefined,
       lit: lit.has(key),
+      ...(root ? { root: true } : {}),
+      ...(label === undefined ? { unmapped: true } : {}),
     };
   });
 }

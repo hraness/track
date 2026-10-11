@@ -49,10 +49,10 @@ test.skipIf(!supported)(
       );
 
       await t.send("\u0010");
-      // Bass sits an octave low; the strip shows the keys.
+      // Bass sits an octave low; the keyboard shows the keys, C2 under A.
       await t.until(() => t.vt.text().includes("PLAY"), "play header");
-      expect(t.vt.text()).toContain("C2–F3");
-      expect(t.vt.text()).toContain("A C2");
+      await t.until(() => t.vt.text().includes("oct C2–F3"), "keyboard");
+      expect(t.vt.text()).toMatch(/^ C2 +D +E +F /m);
 
       // Octave and velocity keys update the header in place.
       await t.send("x");
@@ -122,9 +122,9 @@ test.skipIf(!supported)(
         "count-in",
       );
       await t.send("\u0010");
-      // A keys track defaults to auto chords; the strip names each chord.
+      // A keys track defaults to auto chords; each key names its chord.
       await t.until(() => t.vt.text().includes("AUTO C major"), "auto header");
-      expect(t.vt.text()).toContain("S Dm");
+      expect(t.vt.text()).toMatch(/^ C +Dm +Em +F +G +Am +Bdim /m);
       // The number-row legend shows what each chord key does.
       expect(t.vt.text()).toContain("1 dim");
       expect(t.vt.text()).toContain("b bass off");
@@ -155,7 +155,8 @@ test.skipIf(!supported)(
       // q: manual, single notes again.
       await t.send("q");
       await t.until(() => t.vt.text().includes("MANUAL C major"), "manual");
-      expect(t.vt.text()).not.toContain("S Dm");
+      expect(t.vt.text()).not.toMatch(/^ C +Dm +Em /m);
+      expect(t.vt.text()).toMatch(/^ C3 +D +E +F /m);
     } finally {
       t.terminal.write("\u0003");
       await t.proc.exited;

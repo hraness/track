@@ -7,6 +7,8 @@ order: 3
 
 Ctrl-P turns your computer keyboard into a piano for the focused
 track, so you can play and record ideas by hand. Esc leaves it.
+The keys are drawn as they sit on your keyboard, each with its note,
+or on a kit its drum (kick on `a`, snare on `s`), lit while it sounds.
 
 ## Ask
 

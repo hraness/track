@@ -116,8 +116,8 @@ describe("PlaySession", () => {
     const keys = session.strip(0);
     const label = (key: string) => keys.find((k) => k.key === key)?.label;
     expect(label("a")).toBe("kick");
-    expect(label("s")).toBe("snare");
-    expect(label("t")).toBe("hat");
+    expect(label("s")).toBe("snr");
+    expect(label("t")).toBe("chh");
     expect(keys.some((k) => k.label === "C2")).toBe(false);
     expect(keys.some((k) => k.chord)).toBe(false);
     const view = session.header();
@@ -957,7 +957,9 @@ describe("scale degrees (i)", () => {
         .strip()
         .slice(0, 3)
         .map((cell) => cell.label),
-    ).toEqual(["D", "E", "F"]);
+    ).toEqual(["D3", "E", "F"]);
+    // The tonic is the root a player anchors on; it keeps its octave.
+    expect(session.strip()[0]!.root).toBe(true);
     state.score = state.score.withTuning({ edo: 19 });
     const cells = session.strip();
     expect(cells).toHaveLength(11);

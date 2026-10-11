@@ -55,6 +55,7 @@ import {
   paintPlayStrip,
   type PlayHeaderView,
 } from "./play-strip.ts";
+import { paintPlayKeys, playKeysRows } from "./play-keys.ts";
 import { paintArrangeStrip, type ArrangeStripView } from "./arrange-strip.ts";
 import { CellBuffer, ScreenWriter, type CursorPosition } from "./screen.ts";
 import { paintDrawer, type DrawerLayout, type DrawerView } from "./drawer.ts";
@@ -1483,13 +1484,43 @@ export function composeFrame(
       ui.theme,
       ui.capabilities.unicode,
     );
-    if (layout.highway.height > 1) {
-      paintPlayStrip(buffer, layout.highway.y, width, view.play.keys, ui.theme);
-      layout.highway = {
-        y: layout.highway.y + 1,
-        height: layout.highway.height - 1,
-      };
-    }
+    // The keyboard as it sits under the hands; one line of `A C3 W C#`
+    // only when the rows are too few to draw it and keep the roll.
+    const keysView = {
+      ...view.play,
+      octave: view.play.octave ?? view.play.range,
+    };
+    const keyRows = playKeysRows(
+      keysView,
+      width,
+      layout.highway.height,
+      ui.capabilities.unicode,
+    );
+    const used =
+      keyRows + 2 <= layout.highway.height
+        ? paintPlayKeys(
+            buffer,
+            layout.highway.y,
+            width,
+            layout.highway.height,
+            keysView,
+            ui.theme,
+            ui.capabilities.unicode,
+          )
+        : layout.highway.height > 1
+          ? (paintPlayStrip(
+              buffer,
+              layout.highway.y,
+              width,
+              view.play.keys,
+              ui.theme,
+            ),
+            1)
+          : 0;
+    layout.highway = {
+      y: layout.highway.y + used,
+      height: layout.highway.height - used,
+    };
     if (view.play.legend && layout.highway.height > 4) {
       paintChordLegend(
         buffer,
