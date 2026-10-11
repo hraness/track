@@ -59,17 +59,17 @@ and its own undo, and they share one transport (`guide panes`).
 Install the release tarball from GitHub directly:
 
 ```sh
-bun add -g https://github.com/hraness/dawg/releases/download/v0.8.0/hraness-dawg-0.8.0.tgz
+bun add -g https://github.com/hraness/dawg/releases/download/v0.9.0/hraness-dawg-0.9.0.tgz
 dawg --help
 ```
 
 Each [release](https://github.com/hraness/dawg/releases) is immutable and ships the tarball, a `SHA256SUMS` file and a build provenance attestation. To check a download before installing it:
 
 ```sh
-gh release download v0.8.0 --repo hraness/dawg
+gh release download v0.9.0 --repo hraness/dawg
 shasum -a 256 -c SHA256SUMS
-gh attestation verify hraness-dawg-0.8.0.tgz --repo hraness/dawg
-bun add -g "$PWD/hraness-dawg-0.8.0.tgz"
+gh attestation verify hraness-dawg-0.9.0.tgz --repo hraness/dawg
+bun add -g "$PWD/hraness-dawg-0.9.0.tgz"
 ```
 
 dawg is also on npm as [`@hraness/dawg`](https://www.npmjs.com/package/@hraness/dawg):

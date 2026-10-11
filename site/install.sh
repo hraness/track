@@ -12,7 +12,7 @@
 #      `bun add -g <that absolute path>`.
 #
 # Settings (all optional):
-#   DAWG_VERSION=0.8.0          install this version instead of the latest
+#   DAWG_VERSION=0.9.0          install this version instead of the latest
 #   DAWG_INSTALL_DIR=<dir>      where verified tarballs are kept
 #   DAWG_INSTALL_BASE_URL=<url> download from <url>/hraness-dawg-<v>.tgz and
 #                               <url>/SHA256SUMS instead of GitHub (testing;

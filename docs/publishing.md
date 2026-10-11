@@ -141,15 +141,15 @@ authentication, from the exact Release tarball:
 
 ```sh
 npm login
-gh release download v0.8.0 --repo hraness/dawg
+gh release download v0.9.0 --repo hraness/dawg
 shasum -a 256 -c SHA256SUMS
-gh attestation verify hraness-dawg-0.8.0.tgz --repo hraness/dawg
-npm publish "$PWD/hraness-dawg-0.8.0.tgz" --access public
+gh attestation verify hraness-dawg-0.9.0.tgz --repo hraness/dawg
+npm publish "$PWD/hraness-dawg-0.9.0.tgz" --access public
 npm trust github @hraness/dawg --repo hraness/dawg --file release.yml --environment npm-release --allow-publish --yes
 npm trust list @hraness/dawg
 ```
 
-Then rerun the failed `npm` job of the `v0.8.0` release run. It finds the same
+Then rerun the failed `npm` job of the `v0.9.0` release run. It finds the same
 integrity on npm and succeeds without publishing again. Every later version is
 published only by the workflow's OIDC identity. Do not add a long-lived npm
 token.
