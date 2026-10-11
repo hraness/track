@@ -648,6 +648,18 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       { command: "/resume [<n>|<name>|<id>]", summary: "switch session" },
       { command: "/rename <name>|--auto", summary: "name this session" },
       { command: "/fork [<name>]", summary: "copy into a new session" },
+      {
+        command: "/comment [@last|@agent|@rev N] <text>",
+        summary: "a breadcrumb here (/c) · #tags",
+      },
+      {
+        command: "comments [@agent|@mine|#tag|<track>]",
+        summary: "list comments",
+      },
+      {
+        command: "history [<track>|comment|#tag|bars A-B]",
+        summary: "edits, comments, turns",
+      },
     ],
   },
   {
@@ -1136,6 +1148,11 @@ export const USAGE: Readonly<Record<string, string>> = {
   resume: "/resume [<n>|<name>|<id>]",
   rename: "/rename <name> | --auto",
   fork: "/fork [<name>]",
+  comment:
+    "/comment [@last|@agent|@mine|@rev <N>|@<id>] <text> · /comment love this part #love",
+  comments: "comments [@agent|@mine|#tag|<track>] [n] · /comments #good",
+  history:
+    "history [<track>|<kind>|#tag|bars A-B|<n>] · /history bass comment · dawg history in a shell",
   status: "/status",
   export: "export <file> · export loop.track.json",
   import: "import <file> · import loop.track.json",
@@ -1261,6 +1278,8 @@ const SLASH_ONLY: ReadonlySet<string> = new Set([
   "rename",
   "fork",
   "resume",
+  "comment",
+  "c",
   "login",
   "logout",
   "auth",

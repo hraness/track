@@ -10,6 +10,7 @@ import { parseSectionCommand } from "./arrange.ts";
 import { parseRangeCommand } from "./range.ts";
 import { parseAutotuneCommand } from "./autotune.ts";
 import { parseClipCommand, parseLyricsCommand } from "./clips.ts";
+import { parseHistoryCommand } from "./comment.ts";
 import { parsePatternCommand } from "./drums.ts";
 import { parseProgressionCommand } from "./progression.ts";
 import { parseEditCommand } from "./edit.ts";
@@ -133,5 +134,6 @@ function parsers(score: TrackScore): ((text: string) => unknown)[] {
     parseExportCommand,
     parseLoopCommand,
     parseTrackEdit,
+    parseHistoryCommand,
   ];
 }

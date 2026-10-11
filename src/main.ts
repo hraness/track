@@ -4,6 +4,11 @@ import { isGuideInstrument, vocalChainPatch } from "../core/clips.ts";
 import { newId } from "../core/ids.ts";
 import { deepEqual, DiffError, diffScores } from "../core/diff.ts";
 import { currentActor } from "./identity/actor.ts";
+import {
+  runHistoryLine,
+  wireHistory,
+  type HistoryHost,
+} from "./history/wire.ts";
 import { isSingWord } from "../core/sing.ts";
 import { commandParses, parseExact } from "./commands/parses.ts";
 import { paramRangeError } from "./commands/param-range.ts";
@@ -67,11 +72,12 @@ import {
   listSessions,
   printSessions,
 } from "./session/list.ts";
+import { openHistory } from "./history/open.ts";
+import { undoEvents } from "./history/undo-source.ts";
 import {
   ALL_TRACKS_OPEN_HINT,
   attachTrack,
   forkSession,
-  historyEvents,
   namingTarget,
   pickerLines,
   resolveSessionArg,
@@ -568,10 +574,11 @@ Usage:
   dawg [--new] [--session <name|id>] [--track <name>]
   dawg --import <file> --export <file>   convert a loop file (no session)
   dawg sessions
+  dawg history [filters] [--json] [--follow]  edits and comments (--help)
   ${wrapUsage(RENDER_USAGE.replace(/^usage: /, ""), 76, "               ")}
   dawg init [dir]      song.ts, tracks/<slug>/track.ts and .dawg/sdk
   dawg check           typecheck + evaluate the project; exit 1 on problems
-  dawg <command> --help  usage: sessions render init check media model
+  dawg <command> --help  usage: sessions history render init check media model
   dawg doctor          audio backend, native sink and devices
   dawg media doctor|download|stems|analyze|notes|sample|lyrics  (--help)
   dawg --version
@@ -661,6 +668,20 @@ if (process.argv[2] === "media") {
       process.cwd(),
       stdout,
       process.stderr,
+    ),
+  );
+}
+if (process.argv[2] === "history") {
+  const { runHistoryCommand } = await import("./history/cli.ts");
+  const abort = new AbortController();
+  process.once("SIGINT", () => abort.abort());
+  process.exit(
+    await runHistoryCommand(
+      process.argv.slice(2),
+      process.cwd(),
+      stdout,
+      process.stderr,
+      abort.signal,
     ),
   );
 }
@@ -951,6 +972,25 @@ let promptQueueBusy: () => boolean = () => false;
 let runStepLater: (step: () => readonly string[]) => void = () => undefined;
 /** The fader drawer's focus and typing, while one is open over the menu. */
 let fader: FaderState | undefined;
+/** Session history (src/history/wire.ts): the handle, /comment, /history. */
+const historyHost: HistoryHost = {
+  workspace: ephemeralWorkspace ?? process.cwd(),
+  sessionId: () => record.sessionId,
+  revision: () => record.revision,
+  score: () => score,
+  clientId: () => port.clientId,
+  actorId: () => actor.id,
+  presence: () =>
+    panePresence.find((entry) => entry.clientId === port.clientId),
+  focusedTrack: () => requestedTrack,
+  playheadBeat: () => scoreBeatAt(score, clock.beatAt()),
+  playing: () => clock.playing,
+  focusedParam: () => fader?.label.slice(0, 64),
+  patchNode: () => undefined,
+  screen: () => paneView().screen ?? "home",
+  ascii: () => !tui.capabilities.unicode,
+};
+const history = wireHistory(historyHost);
 /** Show-me state (see the show-me section below). */
 /** A TAPE gesture's typed command, echoed dimly in the prompt row. */
 const gestureEcho: {
@@ -2826,6 +2866,8 @@ async function submit(prompt: string): Promise<string | Receipt> {
   if (kit) return kitCommand(kit, /^\/?kits?\s*$/i.test(command.trim()));
   const wavetable = parseWavetableCommand(command);
   if (wavetable) return wavetableCommand(wavetable);
+  const historyReply = await historyCommand(command);
+  if (historyReply !== undefined) return historyReply;
   const sessionReply = await sessionCommand(command);
   if (sessionReply !== undefined) return sessionReply;
   const time = parseTimeCommand(command);
@@ -4348,6 +4390,35 @@ function makeNamer(): AutoNamer {
         ? undefined
         : providerNameGenerator(currentProvider),
   });
+}
+
+/** `/comment`, `/comments`, `/history` (src/history/wire.ts). */
+async function historyCommand(command: string): Promise<Receipt | undefined> {
+  const reply = runHistoryLine(
+    command,
+    historyHost,
+    history,
+    stdout.columns ?? 80,
+  );
+  if (reply === undefined) return undefined;
+  if ("view" in reply) tui.openText(reply.view.title, reply.view.lines);
+  if ("picker" in reply)
+    tui.openPicker({ id: "history", filterable: true, ...reply.picker });
+  if ("jump" in reply) {
+    if (
+      reply.jump.trackId !== undefined &&
+      reply.jump.trackId !== requestedTrack
+    ) {
+      await port.focus(reply.jump.trackId);
+      requestedTrack = reply.jump.trackId;
+    }
+    if (reply.jump.beat !== undefined) await seekTransport(reply.jump.beat);
+  }
+  return reply.tone === "ok"
+    ? ok(reply.text)
+    : reply.tone === "warn"
+      ? warn(reply.text)
+      : fail(reply.text);
 }
 
 /** `/sessions`, `/resume`, `/rename`, `/fork`; undefined when not one. */
@@ -6358,7 +6429,11 @@ async function stepHistory(
 ): Promise<Receipt> {
   const latest = await port.load();
   // A fork's undo continues into its parent's history past the fork point.
-  const events = await historyEvents(process.cwd(), latest);
+  const events = await undoEvents(
+    openHistory(process.cwd()),
+    process.cwd(),
+    latest,
+  );
   const before = scoreFromJSON(latest.composition);
   const kind = direction === "undo" ? UNDO_KIND : REDO_KIND;
   const key = direction === "undo" ? "undoneRevision" : "redoneRevision";
@@ -6900,6 +6975,7 @@ function agentHost(
       }),
     }),
     media: mediaServices(),
+    history: history.handle,
     preview: agentPreviewHost(),
     async commit(change) {
       // dawgd rebases operation intents onto newer revisions when nothing

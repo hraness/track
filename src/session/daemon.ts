@@ -15,6 +15,7 @@ import {
   type SampleBank,
 } from "../audio/samples.ts";
 import { PackStore } from "../audio/packs.ts";
+import { historyHook } from "../history/hook.ts";
 import { acquireSessionLock } from "./lock.ts";
 import { LiveHost } from "./live-host.ts";
 import {
@@ -615,6 +616,9 @@ export class DawgDaemon {
           ...(operations ? { ops: operations } : {}),
         },
         next.toJSON(),
+        historyHook(this.workspace, this.record.sessionId, {
+          ...(client?.presence?.pane ? { letter: client.presence.pane } : {}),
+        }),
       );
     } catch (error) {
       if (error instanceof SessionConflictError) {

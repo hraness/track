@@ -115,7 +115,7 @@ const REWRITES: readonly ((words: readonly string[]) => string | undefined)[] =
  * Verbs whose slash and bare spellings are different commands: bare `play`
  * is the transport, `/play` is play mode. The grammar never swaps them.
  */
-export const DISTINCT_SLASH: ReadonlySet<string> = new Set(["play"]);
+export const DISTINCT_SLASH: ReadonlySet<string> = new Set(["play", "c"]);
 
 /**
  * Every other reading of `line`, most likely first: the canonical rewrite,

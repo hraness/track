@@ -61,6 +61,7 @@ export const CHECK_SCENARIOS = [
   "drawer-knobs",
   "menu-depth",
   "help",
+  "history",
   "showme-stream",
 ];
 
@@ -299,6 +300,19 @@ export const SCENARIOS: readonly Scenario[] = [
       await t.until(() => t.vt.text().includes("help"), "help");
     },
     marker: (text) => text.includes("help"),
+  },
+  {
+    // The /history picker (src/history/wire.ts): an edit and a comment.
+    name: "history",
+    async open(t) {
+      await ready(t);
+      await t.send("add C4 at 1\r");
+      await t.send("/comment love this bass line #love\r");
+      await t.send("/history\r");
+      await t.until(() => t.vt.text().includes("history ·"), "history");
+    },
+    marker: (text) => text.includes("history"),
+    focus: focusShown,
   },
   {
     name: "guide",

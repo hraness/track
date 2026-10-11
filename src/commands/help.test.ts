@@ -74,6 +74,7 @@ describe("help reference", () => {
         "/bpm",
         "/chords",
         "/click",
+        "/comment",
         "/fork",
         "/formant",
         "/guide",

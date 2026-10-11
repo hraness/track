@@ -3,6 +3,7 @@ import { watch, type FSWatcher } from "node:fs";
 import { basename, dirname } from "node:path";
 import type { TrackScore } from "../../core/score.ts";
 import { AudioEngine } from "../audio/engine.ts";
+import { historyHook } from "../history/hook.ts";
 import { DaemonClient, type DaemonClientOptions } from "./client.ts";
 import { FilePresence } from "./presence.ts";
 import type { LiveLink } from "./shared-live.ts";
@@ -429,6 +430,7 @@ class FilePort<T> implements SessionPort<T> {
       current,
       { ...event, actor },
       composition,
+      historyHook(dirname(this.options.paths.root), current.sessionId),
     );
   }
 

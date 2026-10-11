@@ -221,6 +221,18 @@ export async function appendSessionEvent<T>(
     id?: string;
   },
   composition: T,
+  /**
+   * Runs after the atomic rename and before the lock is released, with the
+   * appended event (its rewind uncompacted), the record that was on disk
+   * and the one just written: session history mirrors edits here so rows
+   * land in revision order across panes. Its errors are swallowed, never
+   * rethrown: the edit has already committed.
+   */
+  onCommitted?: (
+    event: SessionEvent,
+    diskBefore: SessionRecord<unknown>,
+    after: SessionRecord<unknown>,
+  ) => void,
 ): Promise<SessionRecord<T>> {
   // dawgd passes the client's idempotency key as the durable event id so a
   // retried intent stays a no-op across daemon restarts.
@@ -277,6 +289,18 @@ export async function appendSessionEvent<T>(
     const validated = validateSessionRecord<T>(next);
     const { record, json } = compactRecord(validated);
     await writeAtomic(paths.record, json);
+    if (onCommitted) {
+      try {
+        onCommitted(
+          appended,
+          disk as SessionRecord<unknown>,
+          record as SessionRecord<unknown>,
+        );
+      } catch {
+        // The hook owns its reporting (history marks itself dirty and
+        // reconciles from this record later); never fail a committed edit.
+      }
+    }
     return record;
   } finally {
     await release();
