@@ -39,7 +39,11 @@ export type FadeCurve = "linear" | "exp" | "log" | "scurve";
  * Nearest sign change of the mono sum within ±5 ms of `frame` (then the
  * quietest sample if there is none), so a cut never clicks.
  */
-export function snapToZero(signal: Float32Array, frame: number, sampleRate: number): number {
+export function snapToZero(
+  signal: Float32Array,
+  frame: number,
+  sampleRate: number,
+): number {
   const at = Math.max(0, Math.min(signal.length, Math.round(frame)));
   if (at <= 0 || at >= signal.length) return at;
   const radius = Math.max(1, Math.round(ZERO_SNAP_SECONDS * sampleRate));
@@ -55,7 +59,11 @@ export function snapToZero(signal: Float32Array, frame: number, sampleRate: numb
   }
   let best = at;
   let bestValue = Math.abs(signal[at]!);
-  for (let i = Math.max(0, at - radius); i <= Math.min(signal.length - 1, at + radius); i += 1) {
+  for (
+    let i = Math.max(0, at - radius);
+    i <= Math.min(signal.length - 1, at + radius);
+    i += 1
+  ) {
     const v = Math.abs(signal[i]!);
     if (v < bestValue) {
       best = i;
@@ -65,7 +73,11 @@ export function snapToZero(signal: Float32Array, frame: number, sampleRate: numb
   return best;
 }
 
-export function snapToList(frame: number, points: readonly number[], radius: number): number {
+export function snapToList(
+  frame: number,
+  points: readonly number[],
+  radius: number,
+): number {
   let best = frame;
   let bestDistance = radius + 1;
   for (const p of points) {
@@ -101,7 +113,11 @@ export function onsets(pcm: Pcm, sensitivity = 1): number[] {
   const all: number[] = [];
   const gap = Math.round(0.03 * pcm.sampleRate);
   for (const w of analysisWindows(signal.length, pcm.sampleRate)) {
-    const found = detectOnsets(signal.subarray(w.start, w.end), pcm.sampleRate, sensitivity);
+    const found = detectOnsets(
+      signal.subarray(w.start, w.end),
+      pcm.sampleRate,
+      sensitivity,
+    );
     for (const f of found) {
       const at = f + w.start;
       if (!rises(signal, at, pcm.sampleRate)) continue;
@@ -124,18 +140,32 @@ function rises(signal: Float32Array, at: number, sampleRate: number): boolean {
     for (let i = a; i < b; i += 1) sum += signal[i]! * signal[i]!;
     return b > a ? sum / (b - a) : 0;
   };
-  const before = energy(at - span - Math.round(0.005 * sampleRate), at - Math.round(0.005 * sampleRate));
+  const before = energy(
+    at - span - Math.round(0.005 * sampleRate),
+    at - Math.round(0.005 * sampleRate),
+  );
   const after = energy(at, at + span);
   return after > before * 1.25 + 1e-12;
 }
 
-export type Beats = Readonly<{ bpm: number; confidence: number; offset: number; beats: number[] }>;
+export type Beats = Readonly<{
+  bpm: number;
+  confidence: number;
+  offset: number;
+  beats: number[];
+}>;
 
 /** Tempo and a beat grid in seconds (first window decides the tempo). */
 export function beats(pcm: Pcm): Beats | undefined {
   const signal = mono(pcm);
-  const window = Math.min(signal.length, ANALYSIS_WINDOW_SECONDS * pcm.sampleRate);
-  const { envelope, hopSeconds } = onsetEnvelope(signal.subarray(0, window), pcm.sampleRate);
+  const window = Math.min(
+    signal.length,
+    ANALYSIS_WINDOW_SECONDS * pcm.sampleRate,
+  );
+  const { envelope, hopSeconds } = onsetEnvelope(
+    signal.subarray(0, window),
+    pcm.sampleRate,
+  );
   const estimate = estimateTempo(envelope, hopSeconds);
   if (!estimate) return undefined;
   const period = 60 / estimate.bpm;
@@ -185,14 +215,19 @@ export function silenceSegments(
   const merged: Segment[] = [];
   for (const s of raw) {
     const last = merged[merged.length - 1];
-    if (last && s.start - last.end < minFrames) merged[merged.length - 1] = { start: last.start, end: s.end };
+    if (last && s.start - last.end < minFrames)
+      merged[merged.length - 1] = { start: last.start, end: s.end };
     else merged.push(s);
   }
   return merged.filter((s) => s.end - s.start >= minFrames);
 }
 
 /** Onset-to-onset regions (frames), the last running to the end. */
-export function onsetSegments(pcm: Pcm, minFrames: number, sensitivity = 1): Segment[] {
+export function onsetSegments(
+  pcm: Pcm,
+  minFrames: number,
+  sensitivity = 1,
+): Segment[] {
   const points = onsets(pcm, sensitivity);
   const n = frames(pcm);
   if (points.length === 0) return n > 0 ? [{ start: 0, end: n }] : [];
@@ -201,7 +236,8 @@ export function onsetSegments(pcm: Pcm, minFrames: number, sensitivity = 1): Seg
     const start = points[i]!;
     const end = points[i + 1] ?? n;
     if (end - start >= minFrames) out.push({ start, end });
-    else if (out.length > 0) out[out.length - 1] = { start: out[out.length - 1]!.start, end };
+    else if (out.length > 0)
+      out[out.length - 1] = { start: out[out.length - 1]!.start, end };
   }
   return out;
 }
@@ -211,7 +247,10 @@ export function gridSegments(pcm: Pcm, count: number): Segment[] {
   const n = frames(pcm);
   const out: Segment[] = [];
   for (let i = 0; i < count; i += 1)
-    out.push({ start: Math.round((i * n) / count), end: Math.round(((i + 1) * n) / count) });
+    out.push({
+      start: Math.round((i * n) / count),
+      end: Math.round(((i + 1) * n) / count),
+    });
   return out;
 }
 
@@ -219,11 +258,15 @@ export function gridSegments(pcm: Pcm, count: number): Segment[] {
 export function beatSegments(pcm: Pcm, beatsPer = 1): Segment[] {
   const grid = beats(pcm);
   const n = frames(pcm);
-  if (!grid || grid.beats.length < 2) return n > 0 ? [{ start: 0, end: n }] : [];
-  const marks = grid.beats.filter((_, i) => i % Math.max(1, beatsPer) === 0).map((t) => Math.round(t * pcm.sampleRate));
+  if (!grid || grid.beats.length < 2)
+    return n > 0 ? [{ start: 0, end: n }] : [];
+  const marks = grid.beats
+    .filter((_, i) => i % Math.max(1, beatsPer) === 0)
+    .map((t) => Math.round(t * pcm.sampleRate));
   const out: Segment[] = [];
   if (marks[0]! > 0) out.push({ start: 0, end: marks[0]! });
-  for (let i = 0; i < marks.length; i += 1) out.push({ start: marks[i]!, end: marks[i + 1] ?? n });
+  for (let i = 0; i < marks.length; i += 1)
+    out.push({ start: marks[i]!, end: marks[i + 1] ?? n });
   return out.filter((s) => s.end > s.start);
 }
 
@@ -262,7 +305,8 @@ export function sectionSegments(pcm: Pcm, count = 8): Segment[] {
   cuts.sort((a, b) => a - b);
   const marks = [0, ...cuts.map((c) => c * hop), signal.length];
   const out: Segment[] = [];
-  for (let i = 0; i + 1 < marks.length; i += 1) out.push({ start: marks[i]!, end: marks[i + 1]! });
+  for (let i = 0; i + 1 < marks.length; i += 1)
+    out.push({ start: marks[i]!, end: marks[i + 1]! });
   return out;
 }
 
@@ -273,7 +317,10 @@ export function peakBins(pcm: Pcm, count: number): number[] {
   const out: number[] = [];
   for (let b = 0; b < bins; b += 1) {
     const start = Math.floor((b * signal.length) / bins);
-    const end = Math.max(start + 1, Math.floor(((b + 1) * signal.length) / bins));
+    const end = Math.max(
+      start + 1,
+      Math.floor(((b + 1) * signal.length) / bins),
+    );
     let max = 0;
     for (let i = start; i < Math.min(end, signal.length); i += 1) {
       const v = Math.abs(signal[i]!);
@@ -288,7 +335,17 @@ export function peakBins(pcm: Pcm, count: number): number[] {
 export function peakStrip(bins: readonly number[], ascii = false): string {
   const glyphs = ascii ? " .:-=+*#" : "▁▂▃▄▅▆▇█";
   const max = Math.max(1e-9, ...bins);
-  return bins.map((v) => glyphs[Math.min(glyphs.length - 1, Math.floor((v / max) * (glyphs.length - 1) + 0.5))]).join("");
+  return bins
+    .map(
+      (v) =>
+        glyphs[
+          Math.min(
+            glyphs.length - 1,
+            Math.floor((v / max) * (glyphs.length - 1) + 0.5),
+          )
+        ],
+    )
+    .join("");
 }
 
 // ---------------------------------------------------------------- edits
@@ -299,7 +356,11 @@ export function gain(pcm: Pcm, db: number): Pcm {
 }
 
 /** Scale so the peak (or RMS when `rms`) lands on `targetDb`. */
-export function normalize(pcm: Pcm, targetDb = -1, mode: "peak" | "rms" = "peak"): Pcm {
+export function normalize(
+  pcm: Pcm,
+  targetDb = -1,
+  mode: "peak" | "rms" = "peak",
+): Pcm {
   let level = 0;
   if (mode === "peak") level = peak(pcm);
   else {
@@ -335,7 +396,12 @@ export function curveAt(x: number, curve: FadeCurve): number {
   }
 }
 
-export function fade(pcm: Pcm, inFrames: number, outFrames: number, curve: FadeCurve = "linear"): Pcm {
+export function fade(
+  pcm: Pcm,
+  inFrames: number,
+  outFrames: number,
+  curve: FadeCurve = "linear",
+): Pcm {
   const n = frames(pcm);
   const fi = Math.max(0, Math.min(n, Math.round(inFrames)));
   const fo = Math.max(0, Math.min(n, Math.round(outFrames)));
@@ -348,12 +414,16 @@ export function fade(pcm: Pcm, inFrames: number, outFrames: number, curve: FadeC
 }
 
 /** Drop leading and trailing audio below `thresholdDb` (frames kept). */
-export function trimBounds(pcm: Pcm, thresholdDb = -40): Readonly<{ start: number; end: number }> {
+export function trimBounds(
+  pcm: Pcm,
+  thresholdDb = -40,
+): Readonly<{ start: number; end: number }> {
   const threshold = fromDb(thresholdDb);
   const n = frames(pcm);
   let start = 0;
   let end = n;
-  const loud = (i: number) => pcm.channels.some((c) => Math.abs(c[i]!) >= threshold);
+  const loud = (i: number) =>
+    pcm.channels.some((c) => Math.abs(c[i]!) >= threshold);
   while (start < n && !loud(start)) start += 1;
   while (end > start && !loud(end - 1)) end -= 1;
   return { start, end };
@@ -364,7 +434,11 @@ export function pad(pcm: Pcm, offsetFrames: number, tailFrames = 0): Pcm {
   const off = Math.round(offsetFrames);
   if (off < 0) return pad(slicePcm(pcm, -off, frames(pcm)), 0, tailFrames);
   const n = frames(pcm);
-  const out = makePcm(pcm.sampleRate, pcm.channels.length, n + off + Math.max(0, Math.round(tailFrames)));
+  const out = makePcm(
+    pcm.sampleRate,
+    pcm.channels.length,
+    n + off + Math.max(0, Math.round(tailFrames)),
+  );
   pcm.channels.forEach((c, i) => out.channels[i]!.set(c, off));
   return out;
 }
@@ -388,14 +462,19 @@ export function filter(pcm: Pcm, kind: FilterKind, hz: number, q = 0.707): Pcm {
  */
 export function loopSeam(pcm: Pcm, crossfadeFrames: number): Pcm {
   const n = frames(pcm);
-  const x = Math.max(0, Math.min(Math.floor(n / 2), Math.round(crossfadeFrames)));
+  const x = Math.max(
+    0,
+    Math.min(Math.floor(n / 2), Math.round(crossfadeFrames)),
+  );
   if (x === 0) return pcm;
   return mapChannels(pcm, (c) => {
     const out = c.slice(0, n - x);
     for (let i = 0; i < x; i += 1) {
       const t = i / x;
       // Equal-power blend: the tail fades out over the head fading in.
-      out[i] = c[i]! * Math.sin((t * Math.PI) / 2) + c[n - x + i]! * Math.cos((t * Math.PI) / 2);
+      out[i] =
+        c[i]! * Math.sin((t * Math.PI) / 2) +
+        c[n - x + i]! * Math.cos((t * Math.PI) / 2);
     }
     return out;
   });
@@ -403,10 +482,15 @@ export function loopSeam(pcm: Pcm, crossfadeFrames: number): Pcm {
 
 function matchLayout(pcm: Pcm, sampleRate: number, channels: number): Pcm {
   if (pcm.sampleRate !== sampleRate)
-    throw new ChopError(`sample rates differ (${pcm.sampleRate} vs ${sampleRate}) · convert first`);
+    throw new ChopError(
+      `sample rates differ (${pcm.sampleRate} vs ${sampleRate}) · convert first`,
+    );
   if (pcm.channels.length === channels) return pcm;
   if (pcm.channels.length === 1)
-    return { sampleRate, channels: Array.from({ length: channels }, () => pcm.channels[0]!) };
+    return {
+      sampleRate,
+      channels: Array.from({ length: channels }, () => pcm.channels[0]!),
+    };
   const m = mono(pcm);
   return { sampleRate, channels: Array.from({ length: channels }, () => m) };
 }
@@ -419,11 +503,17 @@ export function concat(parts: readonly Pcm[], crossfadeFrames = 0): Pcm {
   const aligned = parts.map((p) => matchLayout(p, sr, ch));
   const x = Math.max(0, Math.round(crossfadeFrames));
   let total = 0;
-  aligned.forEach((p, i) => (total += frames(p) - (i > 0 ? Math.min(x, frames(p), frames(aligned[i - 1]!)) : 0)));
+  aligned.forEach(
+    (p, i) =>
+      (total +=
+        frames(p) -
+        (i > 0 ? Math.min(x, frames(p), frames(aligned[i - 1]!)) : 0)),
+  );
   const out = makePcm(sr, ch, total);
   let at = 0;
   aligned.forEach((p, index) => {
-    const overlap = index > 0 ? Math.min(x, frames(p), frames(aligned[index - 1]!)) : 0;
+    const overlap =
+      index > 0 ? Math.min(x, frames(p), frames(aligned[index - 1]!)) : 0;
     at -= overlap;
     for (let c = 0; c < ch; c += 1) {
       const src = p.channels[c]!;
@@ -431,7 +521,9 @@ export function concat(parts: readonly Pcm[], crossfadeFrames = 0): Pcm {
       for (let i = 0; i < src.length; i += 1) {
         if (i < overlap) {
           const t = i / overlap;
-          dst[at + i] = dst[at + i]! * Math.cos((t * Math.PI) / 2) + src[i]! * Math.sin((t * Math.PI) / 2);
+          dst[at + i] =
+            dst[at + i]! * Math.cos((t * Math.PI) / 2) +
+            src[i]! * Math.sin((t * Math.PI) / 2);
         } else dst[at + i] = src[i]!;
       }
     }
@@ -441,12 +533,20 @@ export function concat(parts: readonly Pcm[], crossfadeFrames = 0): Pcm {
 }
 
 /** Sum buffers with per-input gains (dB) and start offsets (frames). */
-export function mix(parts: readonly Pcm[], gainsDb: readonly number[] = [], offsets: readonly number[] = []): Pcm {
+export function mix(
+  parts: readonly Pcm[],
+  gainsDb: readonly number[] = [],
+  offsets: readonly number[] = [],
+): Pcm {
   if (parts.length === 0) throw new ChopError("mix needs inputs");
   const sr = parts[0]!.sampleRate;
   const ch = Math.max(...parts.map((p) => p.channels.length));
   const aligned = parts.map((p) => matchLayout(p, sr, ch));
-  const length = Math.max(...aligned.map((p, i) => frames(p) + Math.max(0, Math.round(offsets[i] ?? 0))));
+  const length = Math.max(
+    ...aligned.map(
+      (p, i) => frames(p) + Math.max(0, Math.round(offsets[i] ?? 0)),
+    ),
+  );
   const out = makePcm(sr, ch, length);
   aligned.forEach((p, i) => {
     const g = fromDb(gainsDb[i] ?? 0);
@@ -462,7 +562,10 @@ export function mix(parts: readonly Pcm[], gainsDb: readonly number[] = [], offs
 
 /** Each channel as its own mono buffer. */
 export function split(pcm: Pcm): Pcm[] {
-  return pcm.channels.map((c) => ({ sampleRate: pcm.sampleRate, channels: [c.slice()] }));
+  return pcm.channels.map((c) => ({
+    sampleRate: pcm.sampleRate,
+    channels: [c.slice()],
+  }));
 }
 
 /** Linear-interpolation resample of one channel to `length` frames. */
@@ -474,7 +577,8 @@ function stretchLinear(x: Float32Array, length: number): Float32Array {
     const pos = i * step;
     const a = Math.floor(pos);
     const frac = pos - a;
-    out[i] = x[a]! * (1 - frac) + (x[Math.min(x.length - 1, a + 1)] ?? 0) * frac;
+    out[i] =
+      x[a]! * (1 - frac) + (x[Math.min(x.length - 1, a + 1)] ?? 0) * frac;
   }
   return out;
 }
@@ -483,11 +587,18 @@ function stretchLinear(x: Float32Array, length: number): Float32Array {
 export function resample(pcm: Pcm, sampleRate: number): Pcm {
   if (sampleRate === pcm.sampleRate) return pcm;
   const length = Math.round((frames(pcm) * sampleRate) / pcm.sampleRate);
-  return { sampleRate, channels: pcm.channels.map((c) => stretchLinear(c, length)) };
+  return {
+    sampleRate,
+    channels: pcm.channels.map((c) => stretchLinear(c, length)),
+  };
 }
 
 /** Pitch shift at the same length (formant-aware phase vocoder, dsp/shift.ts). */
-export function pitchTs(pcm: Pcm, semitones: number, keepFormant: boolean): Pcm {
+export function pitchTs(
+  pcm: Pcm,
+  semitones: number,
+  keepFormant: boolean,
+): Pcm {
   return mapChannels(pcm, (c) =>
     pitchShift(c, pcm.sampleRate, semitones, keepFormant ? { formant: 0 } : {}),
   );
@@ -502,14 +613,19 @@ export function stretchTs(pcm: Pcm, ratio: number): Pcm {
   const semitones = 12 * Math.log2(ratio);
   return mapChannels(pcm, (c) => {
     const resampled = stretchLinear(c, length);
-    return Math.abs(semitones) < 1e-6 ? resampled : pitchShift(resampled, pcm.sampleRate, semitones);
+    return Math.abs(semitones) < 1e-6
+      ? resampled
+      : pitchShift(resampled, pcm.sampleRate, semitones);
   });
 }
 
 // ---------------------------------------------------------------- find
 
 /** 10 ms hop features: log RMS and zero-crossing rate (a brightness proxy). */
-function features(signal: Float32Array, sampleRate: number): { level: Float64Array; zcr: Float64Array; hop: number } {
+function features(
+  signal: Float32Array,
+  sampleRate: number,
+): { level: Float64Array; zcr: Float64Array; hop: number } {
   const hop = Math.max(1, Math.round(0.01 * sampleRate));
   const count = Math.floor(signal.length / hop);
   const level = new Float64Array(count);
@@ -521,7 +637,7 @@ function features(signal: Float32Array, sampleRate: number): { level: Float64Arr
     for (let i = start; i < start + hop; i += 1) {
       const v = signal[i]!;
       sum += v * v;
-      if (i > start && (signal[i - 1]! < 0) !== (v < 0)) crossings += 1;
+      if (i > start && signal[i - 1]! < 0 !== v < 0) crossings += 1;
     }
     level[f] = Math.log10(sum / hop + 1e-9);
     zcr[f] = crossings / hop;
@@ -529,7 +645,12 @@ function features(signal: Float32Array, sampleRate: number): { level: Float64Arr
   return { level, zcr, hop };
 }
 
-function pearson(a: Float64Array, aStart: number, b: Float64Array, length: number): number {
+function pearson(
+  a: Float64Array,
+  aStart: number,
+  b: Float64Array,
+  length: number,
+): number {
   let ma = 0;
   let mb = 0;
   for (let i = 0; i < length; i += 1) {
@@ -563,10 +684,13 @@ export function findSimilar(pcm: Pcm, reference: Pcm, count = 8): Match[] {
   const hay = features(mono(pcm), sr);
   const needle = features(mono(reference), sr);
   const length = needle.level.length;
-  if (length < 5) throw new ChopError("find needs a reference of at least 50 ms");
+  if (length < 5)
+    throw new ChopError("find needs a reference of at least 50 ms");
   const scores: { f: number; score: number }[] = [];
   for (let f = 0; f + length <= hay.level.length; f += 1) {
-    const score = 0.6 * pearson(hay.level, f, needle.level, length) + 0.4 * pearson(hay.zcr, f, needle.zcr, length);
+    const score =
+      0.6 * pearson(hay.level, f, needle.level, length) +
+      0.4 * pearson(hay.zcr, f, needle.zcr, length);
     scores.push({ f, score });
   }
   scores.sort((a, b) => b.score - a.score || a.f - b.f);

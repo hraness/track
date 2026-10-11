@@ -789,7 +789,9 @@ async function executeCallInner(
     try {
       plan = await plan.run({
         ...(context.host.packs ? { packs: context.host.packs } : {}),
-        ...(context.host.workspace ? { workspace: context.host.workspace } : {}),
+        ...(context.host.workspace
+          ? { workspace: context.host.workspace }
+          : {}),
         ...(context.host.media ? { media: context.host.media } : {}),
         ...(context.signal ? { signal: context.signal } : {}),
       });

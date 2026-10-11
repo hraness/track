@@ -1,9 +1,25 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { systemRunner, type CommandRunner } from "../auth/runner.ts";
-import { checkExecArgv, EXEC_LIMITS, ExecError, readExecLog, runExec, type ExecContext } from "./exec.ts";
+import {
+  checkExecArgv,
+  EXEC_LIMITS,
+  ExecError,
+  readExecLog,
+  runExec,
+  type ExecContext,
+} from "./exec.ts";
 
 let root: string;
 let outside: string;
@@ -24,12 +40,19 @@ const FAKES: Record<string, string> = {
 function runnerFor(dir: string): CommandRunner {
   return {
     ...systemRunner,
-    which: (command) => (existsSync(join(dir, command)) ? join(dir, command) : undefined),
+    which: (command) =>
+      existsSync(join(dir, command)) ? join(dir, command) : undefined,
   };
 }
 
 function ctx(extra: Partial<ExecContext> = {}): ExecContext {
-  return { root, trackSlug: "lead", runner: runnerFor(bin), path: `${bin}:/usr/bin:/bin`, ...extra };
+  return {
+    root,
+    trackSlug: "lead",
+    runner: runnerFor(bin),
+    path: `${bin}:/usr/bin:/bin`,
+    ...extra,
+  };
 }
 
 function refused(argv: string[], extra: Partial<ExecContext> = {}): string {
@@ -54,91 +77,215 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  for (const dir of [root, outside, bin]) rmSync(dir, { recursive: true, force: true });
+  for (const dir of [root, outside, bin])
+    rmSync(dir, { recursive: true, force: true });
 });
 
 describe("exec argument policy", () => {
   test("accepts a plain ffmpeg chop and forces safety flags", () => {
-    const result = checkExecArgv(["ffmpeg", "-y", "-i", "in.wav", "-af", "afade=t=in:d=0.1", "out/a.wav"], ctx());
+    const result = checkExecArgv(
+      ["ffmpeg", "-y", "-i", "in.wav", "-af", "afade=t=in:d=0.1", "out/a.wav"],
+      ctx(),
+    );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.argv.slice(0, 3)).toEqual(["ffmpeg", "-nostdin", "-hide_banner"]);
+    expect(result.argv.slice(0, 3)).toEqual([
+      "ffmpeg",
+      "-nostdin",
+      "-hide_banner",
+    ]);
     expect(result.argv).toContain("-protocol_whitelist");
     expect(result.outputs).toEqual(["out/a.wav"]);
   });
 
   test("refuses tools outside the allowlist and paths in argv[0]", () => {
     expect(refused(["bash", "-c", "id"])).toContain("not allowed");
-    expect(refused(["/usr/bin/ffmpeg", "-i", "in.wav", "o.wav"])).toContain("bare tool name");
+    expect(refused(["/usr/bin/ffmpeg", "-i", "in.wav", "o.wav"])).toContain(
+      "bare tool name",
+    );
     expect(refused(["uv", "run", "x"])).toContain("uv is not accepted");
   });
 
   test("argument injection: unknown flags, -- and stdin are refused by name", () => {
-    expect(refused(["ffmpeg", "-i", "in.wav", "-dump_attachment", "x", "o.wav"])).toMatch(/refused|unknown flag/);
+    expect(
+      refused(["ffmpeg", "-i", "in.wav", "-dump_attachment", "x", "o.wav"]),
+    ).toMatch(/refused|unknown flag/);
     expect(refused(["ffmpeg", "--", "-i"])).toContain('"--"');
-    expect(refused(["ffmpeg", "-i", "-", "o.wav"])).toMatch(/stdin|does not exist|"-"/);
-    expect(refused(["yt-dlp", "--exec", "rm -rf ~", "https://example.com/v"])).toContain("refused");
-    expect(refused(["ffmpeg", "-i", "in.wav", "-f", "lavfi", "o.wav"])).toContain("must be one of");
-    expect(refused(["ffmpeg", "-i", "in.wav\nx", "o.wav"])).toContain("control character");
-    expect(refused(["ffmpeg", "-i", "in.wav", "-af", "ladspa=file=/tmp/x.so", "o.wav"])).toContain("refused");
-    expect(refused(["ffmpeg", "-i", "in.wav", "-af", "amovie=/etc/passwd", "o.wav"])).toContain("refused");
-    expect(refused(["sox", "in.wav", "o.wav", "remix", "|rm"])).toContain("refused");
+    expect(refused(["ffmpeg", "-i", "-", "o.wav"])).toMatch(
+      /stdin|does not exist|"-"/,
+    );
+    expect(
+      refused(["yt-dlp", "--exec", "rm -rf ~", "https://example.com/v"]),
+    ).toContain("refused");
+    expect(
+      refused(["ffmpeg", "-i", "in.wav", "-f", "lavfi", "o.wav"]),
+    ).toContain("must be one of");
+    expect(refused(["ffmpeg", "-i", "in.wav\nx", "o.wav"])).toContain(
+      "control character",
+    );
+    expect(
+      refused([
+        "ffmpeg",
+        "-i",
+        "in.wav",
+        "-af",
+        "ladspa=file=/tmp/x.so",
+        "o.wav",
+      ]),
+    ).toContain("refused");
+    expect(
+      refused(["ffmpeg", "-i", "in.wav", "-af", "amovie=/etc/passwd", "o.wav"]),
+    ).toContain("refused");
+    expect(refused(["sox", "in.wav", "o.wav", "remix", "|rm"])).toContain(
+      "refused",
+    );
   });
 
   test("path confinement: absolute, .., protocols and symlink escapes", () => {
-    expect(refused(["ffmpeg", "-i", "/etc/hosts", "o.wav"])).toContain("outside the project");
-    expect(refused(["ffmpeg", "-i", "../../etc/hosts", "o.wav"])).toMatch(/outside the project|does not exist/);
-    expect(refused(["ffmpeg", "-i", "in.wav", "/tmp/o.wav"])).toContain("outside the project");
-    expect(refused(["ffmpeg", "-i", "in.wav", "../o.wav"])).toContain("outside the project");
-    expect(refused(["ffmpeg", "-i", "http://evil/x.wav", "o.wav"])).toContain("protocol");
-    expect(refused(["ffmpeg", "-i", "concat:in.wav|in.wav", "o.wav"])).toContain("protocol");
+    expect(refused(["ffmpeg", "-i", "/etc/hosts", "o.wav"])).toContain(
+      "outside the project",
+    );
+    expect(refused(["ffmpeg", "-i", "../../etc/hosts", "o.wav"])).toMatch(
+      /outside the project|does not exist/,
+    );
+    expect(refused(["ffmpeg", "-i", "in.wav", "/tmp/o.wav"])).toContain(
+      "outside the project",
+    );
+    expect(refused(["ffmpeg", "-i", "in.wav", "../o.wav"])).toContain(
+      "outside the project",
+    );
+    expect(refused(["ffmpeg", "-i", "http://evil/x.wav", "o.wav"])).toContain(
+      "protocol",
+    );
+    expect(
+      refused(["ffmpeg", "-i", "concat:in.wav|in.wav", "o.wav"]),
+    ).toContain("protocol");
     expect(refused(["ffmpeg", "-i", "in.wav", "pipe:1"])).toContain("protocol");
-    expect(refused(["ffmpeg", "-i", "link.wav", "o.wav"])).toContain("outside the project");
-    expect(refused(["ffmpeg", "-i", "in.wav", "escape/o.wav"])).toContain("symlink");
-    expect(refused(["ffmpeg", "-i", "in.wav", ".dawg/x.wav"])).toContain("write scope");
-    expect(refused(["ffmpeg", "-i", "in.wav", ".git/hooks/pre-commit"])).toContain("write scope");
+    expect(refused(["ffmpeg", "-i", "link.wav", "o.wav"])).toContain(
+      "outside the project",
+    );
+    expect(refused(["ffmpeg", "-i", "in.wav", "escape/o.wav"])).toContain(
+      "symlink",
+    );
+    expect(refused(["ffmpeg", "-i", "in.wav", ".dawg/x.wav"])).toContain(
+      "write scope",
+    );
+    expect(
+      refused(["ffmpeg", "-i", "in.wav", ".git/hooks/pre-commit"]),
+    ).toContain("write scope");
     // A read root the host grants is accepted.
-    expect(checkExecArgv(["ffmpeg", "-i", join(outside, "secret.wav"), "o.wav"], ctx({ readRoots: [outside] })).ok).toBe(true);
+    expect(
+      checkExecArgv(
+        ["ffmpeg", "-i", join(outside, "secret.wav"), "o.wav"],
+        ctx({ readRoots: [outside] }),
+      ).ok,
+    ).toBe(true);
   });
 
   test("no network except download tools", () => {
-    expect(refused(["ffmpeg", "-i", "https://example.com/a.mp3", "o.wav"])).toContain("protocol");
-    expect(refused(["sox", "https://example.com/a.wav", "o.wav"])).toMatch(/protocol|outside/);
+    expect(
+      refused(["ffmpeg", "-i", "https://example.com/a.mp3", "o.wav"]),
+    ).toContain("protocol");
+    expect(refused(["sox", "https://example.com/a.wav", "o.wav"])).toMatch(
+      /protocol|outside/,
+    );
     expect(refused(["yt-dlp", "http://example.com/v"])).toContain("https");
     expect(refused(["yt-dlp", "https://127.0.0.1/v"])).toContain("IP-address");
-    expect(refused(["yt-dlp", "https://user:pw@example.com/v"])).toContain("credentials");
-    expect(refused(["yt-dlp", "-o", "../%(title)s.%(ext)s", "https://example.com/v"])).toContain("..");
-    expect(checkExecArgv(["yt-dlp", "-x", "https://example.com/v"], ctx()).ok).toBe(true);
+    expect(refused(["yt-dlp", "https://user:pw@example.com/v"])).toContain(
+      "credentials",
+    );
+    expect(
+      refused([
+        "yt-dlp",
+        "-o",
+        "../%(title)s.%(ext)s",
+        "https://example.com/v",
+      ]),
+    ).toContain("..");
+    expect(
+      checkExecArgv(["yt-dlp", "-x", "https://example.com/v"], ctx()).ok,
+    ).toBe(true);
   });
 
   test("every §7.4 vector is refused", () => {
     expect(refused(["sox", "-", "o.wav"])).toContain('"-"');
-    expect(refused(["yt-dlp", "--exec-before-download", "x", "https://example.com/v"])).toContain("refused");
-    expect(refused(["yt-dlp", "--ffmpeg-location", "/tmp/x", "https://example.com/v"])).toMatch(/refused|unknown/);
-    expect(refused(["yt-dlp", "--postprocessor-args", "x", "https://example.com/v"])).toMatch(/refused|unknown/);
+    expect(
+      refused([
+        "yt-dlp",
+        "--exec-before-download",
+        "x",
+        "https://example.com/v",
+      ]),
+    ).toContain("refused");
+    expect(
+      refused([
+        "yt-dlp",
+        "--ffmpeg-location",
+        "/tmp/x",
+        "https://example.com/v",
+      ]),
+    ).toMatch(/refused|unknown/);
+    expect(
+      refused(["yt-dlp", "--postprocessor-args", "x", "https://example.com/v"]),
+    ).toMatch(/refused|unknown/);
     expect(refused(["yt-dlp", "-a", "urls.txt"])).toMatch(/refused|unknown/);
-    expect(refused(["yt-dlp", "--config-location", "x", "https://example.com/v"])).toMatch(/refused|unknown/);
-    expect(refused(["ffmpeg", "-i", "in.wav", "-af", "sendcmd=c=x", "o.wav"])).toContain("refused");
-    expect(refused(["ffmpeg", "-f", "concat", "-safe", "0", "-i", "in.wav", "o.wav"])).toMatch(/refused|must be one of/);
-    expect(refused(["ffmpeg", "-report", "-i", "in.wav", "o.wav"])).toMatch(/refused|unknown/);
-    expect(refused(["ffmpeg", "-i", "in.wav", "-f", "segment", "o%d.wav"])).toContain("must be one of");
-    expect(refused(["ffmpeg", "-i", "in.wav", "a.wav", "/tmp/b.wav"])).toContain("outside the project");
-    expect(refused(["ffmpeg", "-i", "file:in.wav", "o.wav"])).toContain("protocol");
-    expect(refused(["demucs", "--repo", "/tmp/models", "in.wav"])).toMatch(/refused|unknown/);
+    expect(
+      refused(["yt-dlp", "--config-location", "x", "https://example.com/v"]),
+    ).toMatch(/refused|unknown/);
+    expect(
+      refused(["ffmpeg", "-i", "in.wav", "-af", "sendcmd=c=x", "o.wav"]),
+    ).toContain("refused");
+    expect(
+      refused([
+        "ffmpeg",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        "in.wav",
+        "o.wav",
+      ]),
+    ).toMatch(/refused|must be one of/);
+    expect(refused(["ffmpeg", "-report", "-i", "in.wav", "o.wav"])).toMatch(
+      /refused|unknown/,
+    );
+    expect(
+      refused(["ffmpeg", "-i", "in.wav", "-f", "segment", "o%d.wav"]),
+    ).toContain("must be one of");
+    expect(
+      refused(["ffmpeg", "-i", "in.wav", "a.wav", "/tmp/b.wav"]),
+    ).toContain("outside the project");
+    expect(refused(["ffmpeg", "-i", "file:in.wav", "o.wav"])).toContain(
+      "protocol",
+    );
+    expect(refused(["demucs", "--repo", "/tmp/models", "in.wav"])).toMatch(
+      /refused|unknown/,
+    );
     expect(refused(["uvx", "demucs"])).toContain("uv is not accepted");
-    const stripped = checkExecArgv(["ffmpeg", "-protocol_whitelist", "http,file", "-i", "in.wav", "o.wav"], ctx());
+    const stripped = checkExecArgv(
+      ["ffmpeg", "-protocol_whitelist", "http,file", "-i", "in.wav", "o.wav"],
+      ctx(),
+    );
     expect(stripped.ok && stripped.argv.join(" ")).not.toContain("http,file");
   });
 
   test("trusted shell mode accepts any CLI but still no paths in argv[0]", () => {
-    expect(checkExecArgv(["sleeper", "anything", "--goes"], ctx({ shell: true })).ok).toBe(true);
-    expect(refused(["/bin/sh", "-c", "x"], { shell: true })).toContain("bare tool name");
+    expect(
+      checkExecArgv(["sleeper", "anything", "--goes"], ctx({ shell: true })).ok,
+    ).toBe(true);
+    expect(refused(["/bin/sh", "-c", "x"], { shell: true })).toContain(
+      "bare tool name",
+    );
   });
 });
 
 describe("exec runs", () => {
   test("runs with a minimal env, logs, and reports new files", async () => {
-    const result = await runExec({ argv: ["ffmpeg", "-i", "in.wav", "tracks/lead/samples/cut.wav"] }, ctx());
+    const result = await runExec(
+      { argv: ["ffmpeg", "-i", "in.wav", "tracks/lead/samples/cut.wav"] },
+      ctx(),
+    );
     expect(result.exitCode).toBe(0);
     expect(result.outputs).toEqual(["tracks/lead/samples/cut.wav"]);
     expect(result.stdoutTail).toContain("arg:-nostdin");
@@ -148,7 +295,10 @@ describe("exec runs", () => {
   });
 
   test("yt-dlp gets forced flags, a default folder and a private HOME", async () => {
-    const result = await runExec({ argv: ["yt-dlp", "-x", "https://example.com/v"] }, ctx());
+    const result = await runExec(
+      { argv: ["yt-dlp", "-x", "https://example.com/v"] },
+      ctx(),
+    );
     expect(result.stdoutTail).toContain("arg:--no-exec");
     expect(result.stdoutTail).toContain("arg:tracks/lead/downloads");
     expect(result.stdoutTail).toContain(`.dawg/tmp/exec/${result.logId}`);
@@ -156,7 +306,10 @@ describe("exec runs", () => {
 
   test("a timeout kills the whole process group", async () => {
     const started = Date.now();
-    const result = await runExec({ argv: ["sox", "-n", "out.wav"], timeoutMs: 1000 }, ctx());
+    const result = await runExec(
+      { argv: ["sox", "-n", "out.wav"], timeoutMs: 1000 },
+      ctx(),
+    );
     expect(result.timedOut).toBe(true);
     expect(result.exitCode).not.toBe(0);
     expect(Date.now() - started).toBeLessThan(8000);
@@ -164,9 +317,14 @@ describe("exec runs", () => {
   }, 15000);
 
   test("output is truncated in the reply and capped in the saved log", async () => {
-    const result = await runExec({ argv: ["rubberband", "in.wav", "o.wav"] }, ctx());
+    const result = await runExec(
+      { argv: ["rubberband", "in.wav", "o.wav"] },
+      ctx(),
+    );
     expect(result.exitCode).toBe(3);
-    expect(Buffer.byteLength(result.stdoutTail)).toBeLessThanOrEqual(EXEC_LIMITS.tailBytes);
+    expect(Buffer.byteLength(result.stdoutTail)).toBeLessThanOrEqual(
+      EXEC_LIMITS.tailBytes,
+    );
     expect(result.logTruncated).toBe(true);
     const page = readExecLog(root, result.logId);
     expect(page.size).toBeLessThanOrEqual(EXEC_LIMITS.logCapBytes);
@@ -177,7 +335,10 @@ describe("exec runs", () => {
   test("an abort cancels the run", async () => {
     const controller = new AbortController();
     setTimeout(() => controller.abort(), 200);
-    const result = await runExec({ argv: ["sox", "-n", "o.wav"] }, ctx({ signal: controller.signal }));
+    const result = await runExec(
+      { argv: ["sox", "-n", "o.wav"] },
+      ctx({ signal: controller.signal }),
+    );
     expect(result.exitCode).not.toBe(0);
   }, 15000);
 
@@ -197,7 +358,11 @@ describe("exec runs", () => {
   });
 
   test("queue: two slots, FIFO, abort while queued", async () => {
-    const slow = (signal: AbortSignal) => runExec({ argv: ["sox", "-n", "q.wav"], timeoutMs: 1500 }, ctx({ signal }));
+    const slow = (signal: AbortSignal) =>
+      runExec(
+        { argv: ["sox", "-n", "q.wav"], timeoutMs: 1500 },
+        ctx({ signal }),
+      );
     const keep = new AbortController();
     const a = slow(keep.signal);
     const b = slow(keep.signal);
@@ -211,7 +376,9 @@ describe("exec runs", () => {
   }, 20000);
 
   test("a missing tool names its install command and installs nothing", async () => {
-    await expect(runExec({ argv: ["aubioonset", "-i", "in.wav"] }, ctx())).rejects.toThrow(/not installed.*brew install aubio/);
+    await expect(
+      runExec({ argv: ["aubioonset", "-i", "in.wav"] }, ctx()),
+    ).rejects.toThrow(/not installed.*brew install aubio/);
   });
 
   test("history rows: one tool row and one asset row per output", async () => {

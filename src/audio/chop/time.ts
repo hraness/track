@@ -43,7 +43,8 @@ function rawTime(spec: TimeSpec, total: number, tempo?: Tempo): number {
       : [musical[2]!, musical[3] ?? "1"];
     const bar = Number(barText);
     const inBar = Number(beatText ?? "1");
-    if (bar < 1 || inBar < 1) throw new ChopError(`${spec}: bars and beats count from 1`);
+    if (bar < 1 || inBar < 1)
+      throw new ChopError(`${spec}: bars and beats count from 1`);
     return ((bar - 1) * tempo.beatsPerBar + (inBar - 1)) * beat;
   }
   const ms = /^(\d+(?:\.\d+)?)ms$/.exec(text);

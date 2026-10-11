@@ -1,5 +1,12 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createScore } from "../../core/score.ts";
@@ -25,11 +32,16 @@ writeFileSync(join(bin, "ffprobe"), '#!/bin/sh\necho "probe $@"\n');
 for (const name of ["echo", "ffprobe"]) chmodSync(join(bin, name), 0o755);
 const runner: CommandRunner = {
   ...systemRunner,
-  which: (command) => (existsSync(join(bin, command)) ? join(bin, command) : undefined),
+  which: (command) =>
+    existsSync(join(bin, command)) ? join(bin, command) : undefined,
 };
 
 const tool: ToolContext = {
-  score: createScore({ tempoBpm: 120, bars: 4, tracks: [{ id: "lead", name: "lead", instrument: "saw" }] }),
+  score: createScore({
+    tempoBpm: 120,
+    bars: 4,
+    tracks: [{ id: "lead", name: "lead", instrument: "saw" }],
+  }),
   focusedTrackId: "lead",
   revision: 1,
   newNoteId: (trackId, index) => `${trackId}-n${index}`,
@@ -69,9 +81,14 @@ describe("exec agent tool", () => {
 
   test("trusted shell runs any CLI only when the human set it", async () => {
     const root = temp("dawg-exec-tool-");
-    await expect(run(root, { argv: ["echo", "hi"] })).rejects.toThrow("not allowed");
+    await expect(run(root, { argv: ["echo", "hi"] })).rejects.toThrow(
+      "not allowed",
+    );
     mkdirSync(join(root, ".dawg"), { recursive: true });
-    writeFileSync(join(root, ".dawg", "agent.json"), JSON.stringify({ shell: true }));
+    writeFileSync(
+      join(root, ".dawg", "agent.json"),
+      JSON.stringify({ shell: true }),
+    );
     expect(readExecSettings(root).shell).toBe(true);
     const result = await run(root, { argv: ["echo", "hi"] });
     expect(result.content.stdoutTail).toBe("hi\n");

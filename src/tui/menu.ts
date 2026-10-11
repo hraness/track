@@ -3170,8 +3170,8 @@ function transportNodes(context: MenuContext): MenuNode[] {
       kind: "menu",
       id: "media",
       label: "media",
-      detail: "chop audio files",
-      help: "inspect, cut, slice, stretch and pitch audio files into new samples",
+      detail: "chop sound files",
+      help: "inspect, cut, slice, stretch and pitch sound files into new samples",
       build: mediaNodes,
     },
     {
@@ -3245,7 +3245,10 @@ function mediaNodes(): MenuNode[] {
 export function chopMenuNodes(): MenuNode[] {
   return CHOP_OPS.map((op): MenuNode => {
     const usage = CHOP_USAGE[op];
-    const shape = usage.slice(op.length).trim().split(/\s{2,}/);
+    const shape = usage
+      .slice(op.length)
+      .trim()
+      .split(/\s{2,}/);
     return {
       kind: "entry",
       label: op,
@@ -3253,7 +3256,8 @@ export function chopMenuNodes(): MenuNode[] {
       placeholder: shape[0] ?? "<file>",
       example: `/chop ${op} ${shape[0] ?? "<file>"}`,
       help: shape[1] ?? usage,
-      command: (text) => (text.trim() ? `/chop ${op} ${text.trim()}` : undefined),
+      command: (text) =>
+        text.trim() ? `/chop ${op} ${text.trim()}` : undefined,
     };
   });
 }

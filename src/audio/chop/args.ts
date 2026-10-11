@@ -15,7 +15,16 @@ import {
   type ChopOp,
 } from "./types.ts";
 
-type Kind = "path" | "time" | "number" | "bool" | readonly string[] | "paths" | "numbers" | "times" | "reference";
+type Kind =
+  | "path"
+  | "time"
+  | "number"
+  | "bool"
+  | readonly string[]
+  | "paths"
+  | "numbers"
+  | "times"
+  | "reference";
 
 export const CHOP_ARG_KINDS: Readonly<Record<string, Kind>> = Object.freeze({
   input: "path",
@@ -57,18 +66,30 @@ export const CHOP_ARG_KINDS: Readonly<Record<string, Kind>> = Object.freeze({
 
 function time(value: unknown, key: string): number | string {
   if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() && value.length <= 32) return value.trim();
-  throw new ChopError(`${key} must be seconds or a time like "1.5s", "350ms", "1:02.5", "bar:9.1", "-2s"`);
+  if (typeof value === "string" && value.trim() && value.length <= 32)
+    return value.trim();
+  throw new ChopError(
+    `${key} must be seconds or a time like "1.5s", "350ms", "1:02.5", "bar:9.1", "-2s"`,
+  );
 }
 
 function path(value: unknown, key: string): string {
-  if (typeof value !== "string" || !value.trim() || value.length > 1024 || value.includes("\0"))
+  if (
+    typeof value !== "string" ||
+    !value.trim() ||
+    value.length > 1024 ||
+    value.includes("\0")
+  )
     throw new ChopError(`${key} must be a project-relative path`);
   return value.trim();
 }
 
 export function parseChopOp(value: unknown): ChopOp {
-  if (typeof value === "string" && (CHOP_OPS as readonly string[]).includes(value)) return value as ChopOp;
+  if (
+    typeof value === "string" &&
+    (CHOP_OPS as readonly string[]).includes(value)
+  )
+    return value as ChopOp;
   throw new ChopError(`op must be one of ${CHOP_OPS.join(", ")}`);
 }
 
@@ -81,7 +102,8 @@ export function parseChopArgs(raw: Record<string, unknown>): ChopArgs {
     if (!kind) throw new ChopError(`unknown argument ${key.slice(0, 32)}`);
     if (Array.isArray(kind)) {
       const text = typeof value === "number" ? String(value) : value;
-      if (typeof text !== "string" || !kind.includes(text)) throw new ChopError(`${key} must be one of ${kind.join(", ")}`);
+      if (typeof text !== "string" || !kind.includes(text))
+        throw new ChopError(`${key} must be one of ${kind.join(", ")}`);
       out[key] = key === "channels" ? Number(text) : text;
       continue;
     }
@@ -93,32 +115,45 @@ export function parseChopArgs(raw: Record<string, unknown>): ChopArgs {
         out[key] = time(value, key);
         break;
       case "number": {
-        const n = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
-        if (typeof n !== "number" || !Number.isFinite(n)) throw new ChopError(`${key} must be a number`);
+        const n =
+          typeof value === "string" && value.trim() !== ""
+            ? Number(value)
+            : value;
+        if (typeof n !== "number" || !Number.isFinite(n))
+          throw new ChopError(`${key} must be a number`);
         out[key] = n;
         break;
       }
       case "bool":
         if (typeof value === "boolean") out[key] = value;
-        else if (value === "true" || value === "false") out[key] = value === "true";
+        else if (value === "true" || value === "false")
+          out[key] = value === "true";
         else throw new ChopError(`${key} must be true or false`);
         break;
       case "paths":
       case "numbers":
       case "times": {
-        if (!Array.isArray(value) || value.length > 16) throw new ChopError(`${key} must be a list of at most 16`);
+        if (!Array.isArray(value) || value.length > 16)
+          throw new ChopError(`${key} must be a list of at most 16`);
         out[key] = value.map((item, i) =>
-          kind === "paths" ? path(item, `${key}[${i}]`) : kind === "times" ? time(item, `${key}[${i}]`) : numberItem(item, `${key}[${i}]`),
+          kind === "paths"
+            ? path(item, `${key}[${i}]`)
+            : kind === "times"
+              ? time(item, `${key}[${i}]`)
+              : numberItem(item, `${key}[${i}]`),
         );
         break;
       }
       case "reference": {
-        if (typeof value !== "object" || Array.isArray(value)) throw new ChopError("reference must be {from, to, input?}");
+        if (typeof value !== "object" || Array.isArray(value))
+          throw new ChopError("reference must be {from, to, input?}");
         const ref = value as Record<string, unknown>;
         out[key] = {
           from: time(ref.from, "reference.from"),
           to: time(ref.to, "reference.to"),
-          ...(ref.input !== undefined ? { input: path(ref.input, "reference.input") } : {}),
+          ...(ref.input !== undefined
+            ? { input: path(ref.input, "reference.input") }
+            : {}),
         };
         break;
       }
@@ -129,6 +164,7 @@ export function parseChopArgs(raw: Record<string, unknown>): ChopArgs {
 
 function numberItem(value: unknown, key: string): number {
   const n = typeof value === "string" ? Number(value) : value;
-  if (typeof n !== "number" || !Number.isFinite(n)) throw new ChopError(`${key} must be a number`);
+  if (typeof n !== "number" || !Number.isFinite(n))
+    throw new ChopError(`${key} must be a number`);
   return n;
 }

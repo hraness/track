@@ -13,12 +13,17 @@ import { isAbsolute, join, resolve } from "node:path";
 import { EXEC_LIMITS, ExecError, readExecLog, runExec } from "../media/exec.ts";
 import type { AgentTool, ToolPlan } from "./tools.ts";
 
-export type ExecSettings = Readonly<{ shell: boolean; readRoots: readonly string[] }>;
+export type ExecSettings = Readonly<{
+  shell: boolean;
+  readRoots: readonly string[];
+}>;
 
 /** `.dawg/agent.json` `{ shell, readRoots }`; anything malformed reads as off. */
 export function readExecSettings(root: string): ExecSettings {
   try {
-    const raw = JSON.parse(readFileSync(join(root, ".dawg", "agent.json"), "utf8")) as unknown;
+    const raw = JSON.parse(
+      readFileSync(join(root, ".dawg", "agent.json"), "utf8"),
+    ) as unknown;
     if (!raw || typeof raw !== "object") return { shell: false, readRoots: [] };
     const record = raw as Record<string, unknown>;
     const readRoots = Array.isArray(record.readRoots)
@@ -39,8 +44,17 @@ export const EXEC_TOOL: AgentTool = {
   parameters: {
     type: "object",
     properties: {
-      argv: { type: "array", items: { type: "string" }, minItems: 1, maxItems: EXEC_LIMITS.maxArgs },
-      timeoutSec: { type: "integer", minimum: 1, maximum: EXEC_LIMITS.maxTimeoutMs / 1000 },
+      argv: {
+        type: "array",
+        items: { type: "string" },
+        minItems: 1,
+        maxItems: EXEC_LIMITS.maxArgs,
+      },
+      timeoutSec: {
+        type: "integer",
+        minimum: 1,
+        maximum: EXEC_LIMITS.maxTimeoutMs / 1000,
+      },
       log: { type: "string" },
       offset: { type: "integer" },
     },
@@ -58,22 +72,37 @@ function planExec(raw: Record<string, unknown>): ToolPlan {
       summary: `exec log ${logId}`.slice(0, 120),
       run: async (media) => {
         const page = readExecLog(media.projectRoot, logId, offset);
-        return { summary: `exec log ${logId} @${page.offset}`, content: { ...page }, outputs: [] };
+        return {
+          summary: `exec log ${logId} @${page.offset}`,
+          content: { ...page },
+          outputs: [],
+        };
       },
     };
   }
   const argv = raw.argv;
-  if (!Array.isArray(argv) || argv.length === 0 || !argv.every((a) => typeof a === "string"))
-    throw new ExecError("exec needs argv: a non-empty array of strings (or log: <id>)");
+  if (
+    !Array.isArray(argv) ||
+    argv.length === 0 ||
+    !argv.every((a) => typeof a === "string")
+  )
+    throw new ExecError(
+      "exec needs argv: a non-empty array of strings (or log: <id>)",
+    );
   const timeoutMs =
-    typeof raw.timeoutSec === "number" ? Math.round(raw.timeoutSec * 1000) : undefined;
+    typeof raw.timeoutSec === "number"
+      ? Math.round(raw.timeoutSec * 1000)
+      : undefined;
   return {
     kind: "media",
     summary: `exec ${argv.slice(0, 6).join(" ")}`.slice(0, 120),
     run: async (media) => {
       const settings = readExecSettings(media.projectRoot);
       const result = await runExec(
-        { argv: argv as string[], ...(timeoutMs !== undefined ? { timeoutMs } : {}) },
+        {
+          argv: argv as string[],
+          ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+        },
         {
           root: media.projectRoot,
           trackSlug: media.trackSlug,

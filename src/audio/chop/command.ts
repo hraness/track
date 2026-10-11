@@ -22,7 +22,10 @@ export function parseChopCommand(command: string): ChopCommand | undefined {
     const { op, args } = chopFromWords(rest);
     return { kind: "run", op, args };
   } catch (error) {
-    return { kind: "error", message: `chop · ${errorMessage(error)} · /chop lists ops` };
+    return {
+      kind: "error",
+      message: `chop · ${errorMessage(error)} · /chop lists ops`,
+    };
   }
 }
 

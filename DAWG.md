@@ -207,7 +207,6 @@ One engine, three doors (`src/audio/chop/`): the agent's `audio` tool (`src/agen
 - **Slice to a sampler.** `chop slice <file> --track <id> [--pattern]` loads each slice as a voice on a sampler track (refused past the voice cap) and, with `--pattern`, writes one note per slice in order; one score commit, so Ctrl-Z undoes it.
 - **History.** Each written file becomes an `asset` row (sub `audio.<op>`, payload op, args, sha256 of inputs and output; targets sample, file and track) through the session's history handle (`historySink()`, or `MediaServices.chopHistory` when a host passes one). With no session open nothing is recorded.
 
-
 ### exec
 
 The agent's `exec` tool runs one audio CLI with an argv array: no shell, cwd = project (`src/agent/exec-tool.ts`, runner `src/media/exec.ts`, policy `src/media/exec-policy.ts`). Allowed: `ffmpeg`, `ffprobe`, `sox`, `rubberband`, `yt-dlp`, `demucs`, `basic-pitch`, `aubio`, `aubioonset`, `aubiotrack`, `aubionotes`, `whisper-cli`. A missing tool returns its install command; dawg never installs anything.
@@ -217,6 +216,7 @@ The agent's `exec` tool runs one audio CLI with an argv array: no shell, cwd = p
 **Trusted shell.** `.dawg/agent.json` `{ "shell": true }`, edited by the human only (the agent's write scope refuses `.dawg/`), lets exec run any CLI on PATH with the same limits and logging. `readRoots` there adds read-only input folders.
 
 **Limits.** Timeout 120 s by default, 600 s at most, counted from start; on timeout or Esc the whole process group gets SIGTERM, then SIGKILL after 2 s. Two runs at a time per dawg process, FIFO (`queuedMs` is reported). The turn deadline pauses while exec runs. stdout and stderr go to `.dawg/logs/exec/<id>.log` (16 MiB cap); the result carries 2 KiB tails, the log id, and the files that appeared in the output folders (at most 50). `exec { log, offset }` pages the log 4 KiB at a time. Each run is a `tool` history row (argv, exit, ms, log id) plus an `asset` row per new file.
+
 ### Providers and auth
 
 `src/agent/provider.ts` picks a backend per turn: `DAWG_PROVIDER`, then the choice saved in `~/.config/dawg/config.json`, then `auto` (AI Gateway, then OpenRouter, then a ready Codex or Claude subscription, else offline with a `dawg model key` hint). The config holds `provider`, the model and, for subscriptions, the xcb account. It is written atomically with 0600 permissions and never holds a key. A saved choice that stops working (revoked key, account gone) comes back as `offline` with `invalidSaved` and the reason; startup and `dawg model key` (alias `dawg login`) say so once and open the picker rather than switching providers. Only `dawg logout`, `/logout`, `dawg model key <provider>` and `/model` change it.

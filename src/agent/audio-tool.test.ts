@@ -35,9 +35,14 @@ async function project(): Promise<string> {
   for (let h = 0; h < 4; h += 1)
     for (let i = 0; i < SR * 0.2; i += 1)
       pcm.channels[0]![h * SR * 0.5 + i] =
-        Math.sin((2 * Math.PI * 220 * i) / SR) * Math.exp(-i / (SR * 0.04)) * 0.8;
+        Math.sin((2 * Math.PI * 220 * i) / SR) *
+        Math.exp(-i / (SR * 0.04)) *
+        0.8;
   await mkdir(join(root, "tracks", "lead", "downloads"), { recursive: true });
-  await writeFile(join(root, "tracks", "lead", "downloads", "break.wav"), encodeWav24(pcm));
+  await writeFile(
+    join(root, "tracks", "lead", "downloads", "break.wav"),
+    encodeWav24(pcm),
+  );
   return root;
 }
 
@@ -68,7 +73,10 @@ describe("audio agent tool", () => {
 
   test("onsets on a downloaded file finds the planted hits", async () => {
     const root = await project();
-    const plan = AUDIO_TOOL.plan({ op: "onsets", input: "break.wav" }, context());
+    const plan = AUDIO_TOOL.plan(
+      { op: "onsets", input: "break.wav" },
+      context(),
+    );
     expect(plan.kind).toBe("media");
     if (plan.kind !== "media") return;
     const result = await plan.run({
@@ -97,13 +105,21 @@ describe("audio agent tool", () => {
       signal: new AbortController().signal,
       progress: () => {},
     });
-    expect(result.outputs?.[0]).toMatch(/^tracks\/lead\/samples\/break-cut.*\.wav$/);
+    expect(result.outputs?.[0]).toMatch(
+      /^tracks\/lead\/samples\/break-cut.*\.wav$/,
+    );
   });
 
   test("slice with track yields valid score operations and a pattern", async () => {
     const root = await project();
     const plan = AUDIO_TOOL.plan(
-      { op: "slice", input: "break.wav", method: "silence", track: "chops", pattern: true },
+      {
+        op: "slice",
+        input: "break.wav",
+        method: "silence",
+        track: "chops",
+        pattern: true,
+      },
       context(),
     );
     expect(plan.kind).toBe("prepare");
@@ -121,14 +137,19 @@ describe("audio agent tool", () => {
   });
 
   test("slice refuses past the sampler voice cap", () => {
-    const outputs = Array.from({ length: SCORE_LIMITS.maxSamplerVoices + 1 }, (_, i) => ({
-      path: `samples/x-${i}.wav`,
-      sha256: "0".repeat(64),
-      seconds: 0.1,
-      peakDb: -1,
-    }));
+    const outputs = Array.from(
+      { length: SCORE_LIMITS.maxSamplerVoices + 1 },
+      (_, i) => ({
+        path: `samples/x-${i}.wav`,
+        sha256: "0".repeat(64),
+        seconds: 0.1,
+        peakDb: -1,
+      }),
+    );
     expect(() =>
-      slicesToSampler(score, "chops", "x", outputs, { newNoteId: (i) => `n${i}` }),
+      slicesToSampler(score, "chops", "x", outputs, {
+        newNoteId: (i) => `n${i}`,
+      }),
     ).toThrow(/sampler cap/);
   });
 
@@ -138,7 +159,14 @@ describe("audio agent tool", () => {
         score,
         "lead",
         "x",
-        [{ path: "samples/a.wav", sha256: "0".repeat(64), seconds: 0.1, peakDb: -1 }],
+        [
+          {
+            path: "samples/a.wav",
+            sha256: "0".repeat(64),
+            seconds: 0.1,
+            peakDb: -1,
+          },
+        ],
         { newNoteId: (i) => `n${i}` },
       ),
     ).toThrow(/not a sampler/);

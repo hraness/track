@@ -91,7 +91,10 @@ export const EXEC_INSTALL: Readonly<Record<ExecTool, string>> = {
 
 export class ExecError extends Error {}
 
-export type ExecRequest = Readonly<{ argv: readonly string[]; timeoutMs?: number }>;
+export type ExecRequest = Readonly<{
+  argv: readonly string[];
+  timeoutMs?: number;
+}>;
 
 export type ExecContext = Readonly<{
   /** Project root (absolute). */
@@ -142,11 +145,17 @@ const LOG_ID = /^[a-z0-9]{6,16}-[a-f0-9]{8}$/;
 // ------------------------------------------------------------------ check
 
 /** Parse and confine `argv` (sync); `argv[0]` is a bare tool name. */
-export function checkExecArgv(argv: readonly string[], ctx: ExecContext): ExecCheck {
+export function checkExecArgv(
+  argv: readonly string[],
+  ctx: ExecContext,
+): ExecCheck {
   try {
     return { ok: true, ...checkOrThrow(argv, ctx) };
   } catch (error) {
-    return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -154,12 +163,19 @@ function checkOrThrow(
   argv: readonly string[],
   ctx: ExecContext,
 ): { argv: string[]; outputs: string[]; outdirs: string[] } {
-  if (!Array.isArray(argv) || argv.length === 0) throw new ExecError("argv must be a non-empty array of strings");
-  if (argv.length > EXEC_LIMITS.maxArgs) throw new ExecError(`argv has at most ${EXEC_LIMITS.maxArgs} items`);
+  if (!Array.isArray(argv) || argv.length === 0)
+    throw new ExecError("argv must be a non-empty array of strings");
+  if (argv.length > EXEC_LIMITS.maxArgs)
+    throw new ExecError(`argv has at most ${EXEC_LIMITS.maxArgs} items`);
   for (const [i, arg] of argv.entries()) {
-    if (typeof arg !== "string") throw new ExecError(`argv[${i}] must be a string`);
-    if (arg.length > EXEC_LIMITS.maxArgLength) throw new ExecError(`argv[${i}] is longer than ${EXEC_LIMITS.maxArgLength}`);
-    if (arg.includes("\0") || /[\r\n]/.test(arg)) throw new ExecError(`argv[${i}] contains a control character`);
+    if (typeof arg !== "string")
+      throw new ExecError(`argv[${i}] must be a string`);
+    if (arg.length > EXEC_LIMITS.maxArgLength)
+      throw new ExecError(
+        `argv[${i}] is longer than ${EXEC_LIMITS.maxArgLength}`,
+      );
+    if (arg.includes("\0") || /[\r\n]/.test(arg))
+      throw new ExecError(`argv[${i}] contains a control character`);
   }
   const tool = argv[0]!;
   if (!NAME.test(tool) || tool.includes("/"))
@@ -167,10 +183,14 @@ function checkOrThrow(
   const args = argv.slice(1);
   if (ctx.shell) return { argv: [tool, ...args], outputs: [], outdirs: [] };
   if (tool === "uv" || tool === "uvx")
-    throw new ExecError("uv is not accepted; demucs and basic-pitch run through their uv install automatically");
+    throw new ExecError(
+      "uv is not accepted; demucs and basic-pitch run through their uv install automatically",
+    );
   const policy = EXEC_POLICY[tool];
   if (!policy || !(EXEC_ALLOW as readonly string[]).includes(tool))
-    throw new ExecError(`${tool} is not allowed; allowed: ${EXEC_ALLOW.join(", ")} (the user can enable any CLI with /agent shell on)`);
+    throw new ExecError(
+      `${tool} is not allowed; allowed: ${EXEC_ALLOW.join(", ")} (the user can enable any CLI with /agent shell on)`,
+    );
   const state = new Checker(tool, policy, ctx);
   return tool === "sox" ? state.sox(args) : state.generic(args);
 }
@@ -190,12 +210,19 @@ class Checker {
 
   private refusedFlag(flag: string): void {
     const reason = this.policy.refused?.[flag];
-    if (reason) throw new ExecError(`${this.tool} ${flag} is refused: ${reason}`);
-    for (const [prefix, why] of Object.entries(this.policy.refusedPrefixes ?? {}))
-      if (flag.startsWith(prefix)) throw new ExecError(`${this.tool} ${flag} is refused: ${why}`);
+    if (reason)
+      throw new ExecError(`${this.tool} ${flag} is refused: ${reason}`);
+    for (const [prefix, why] of Object.entries(
+      this.policy.refusedPrefixes ?? {},
+    ))
+      if (flag.startsWith(prefix))
+        throw new ExecError(`${this.tool} ${flag} is refused: ${why}`);
   }
 
-  private lookup(flag: string): { name: string; spec: { arity: 0 | 1; role?: ArgRole } } {
+  private lookup(flag: string): {
+    name: string;
+    spec: { arity: 0 | 1; role?: ArgRole };
+  } {
     this.refusedFlag(flag);
     let name = flag;
     for (;;) {
@@ -212,15 +239,21 @@ class Checker {
     );
   }
 
-  generic(args: readonly string[]): { argv: string[]; outputs: string[]; outdirs: string[] } {
+  generic(args: readonly string[]): {
+    argv: string[];
+    outputs: string[];
+    outdirs: string[];
+  } {
     const out: string[] = [];
     const positionals: string[] = [];
     let templateArg: { index: number; value: string } | undefined;
     let pathsDir: string | undefined;
     for (let i = 0; i < args.length; i += 1) {
       const token = args[i]!;
-      if (token === "--") throw new ExecError(`${this.tool}: "--" is not accepted`);
-      if (token === "-") throw new ExecError(`${this.tool}: "-" (stdin/stdout) is not accepted`);
+      if (token === "--")
+        throw new ExecError(`${this.tool}: "--" is not accepted`);
+      if (token === "-")
+        throw new ExecError(`${this.tool}: "-" (stdin/stdout) is not accepted`);
       if (token.startsWith("-") && token.length > 1 && !/^-\d/.test(token)) {
         let flag = token;
         let inline: string | undefined;
@@ -235,19 +268,22 @@ class Checker {
         }
         const { name, spec } = this.lookup(flag);
         if (spec.arity === 0) {
-          if (inline !== undefined) throw new ExecError(`${this.tool} ${flag} takes no value`);
+          if (inline !== undefined)
+            throw new ExecError(`${this.tool} ${flag} takes no value`);
           out.push(token);
           continue;
         }
         const value = inline ?? args[++i];
-        if (value === undefined) throw new ExecError(`${this.tool} ${flag} needs a value`);
+        if (value === undefined)
+          throw new ExecError(`${this.tool} ${flag} needs a value`);
         const role = spec.role ?? "text";
         if (role === "template") {
           templateArg = { index: out.length + 1, value };
         } else if (role === "outdir" && (name === "-P" || name === "--paths")) {
           pathsDir = this.checkValue(role, value, flag);
         } else this.checkValue(role, value, flag);
-        if (this.tool === "ffmpeg" && name === "-i") out.push("-protocol_whitelist", "file");
+        if (this.tool === "ffmpeg" && name === "-i")
+          out.push("-protocol_whitelist", "file");
         out.push(flag, value);
         continue;
       }
@@ -256,7 +292,8 @@ class Checker {
     }
     this.checkPositionals(positionals);
     if (this.tool === "yt-dlp") {
-      if (positionals.length !== 1) throw new ExecError("yt-dlp needs exactly one https:// URL");
+      if (positionals.length !== 1)
+        throw new ExecError("yt-dlp needs exactly one https:// URL");
       if (templateArg) this.checkTemplate(templateArg.value, pathsDir);
       if (!templateArg && !pathsDir) {
         const dir = `tracks/${this.ctx.trackSlug ?? "main"}/downloads`;
@@ -266,7 +303,9 @@ class Checker {
     } else if (templateArg) {
       // demucs --filename: relative to -o, no directories of its own.
       if (templateArg.value.includes("..") || isAbsolute(templateArg.value))
-        throw new ExecError(`${this.tool} --filename must stay inside the output folder`);
+        throw new ExecError(
+          `${this.tool} --filename must stay inside the output folder`,
+        );
     }
     const forced = this.tool === "ffmpeg" ? ["-nostdin", "-hide_banner"] : [];
     return {
@@ -279,11 +318,17 @@ class Checker {
   private checkPositionals(positionals: readonly string[]): void {
     const { fixed = [], rest, max } = this.policy.positionals;
     if (max !== undefined && positionals.length > max)
-      throw new ExecError(`${this.tool} takes at most ${max} positional argument${max === 1 ? "" : "s"}`);
+      throw new ExecError(
+        `${this.tool} takes at most ${max} positional argument${max === 1 ? "" : "s"}`,
+      );
     for (const [i, value] of positionals.entries()) {
       const role = i < fixed.length ? fixed[i]! : rest;
-      if (!role) throw new ExecError(`${this.tool}: unexpected argument ${value}`);
-      if (value.startsWith("-")) throw new ExecError(`${this.tool}: ${value} looks like a flag in a file position`);
+      if (!role)
+        throw new ExecError(`${this.tool}: unexpected argument ${value}`);
+      if (value.startsWith("-"))
+        throw new ExecError(
+          `${this.tool}: ${value} looks like a flag in a file position`,
+        );
       this.checkValue(role, value, `argument ${i + 1}`);
     }
     if (this.tool === "rubberband" && positionals.length !== 2)
@@ -293,12 +338,17 @@ class Checker {
   }
 
   /** sox: [gopts] [[fopts] infile]… [[fopts] outfile] [effect [args]]… */
-  sox(args: readonly string[]): { argv: string[]; outputs: string[]; outdirs: string[] } {
+  sox(args: readonly string[]): {
+    argv: string[];
+    outputs: string[];
+    outdirs: string[];
+  } {
     const files: Array<{ value: string; nul: boolean }> = [];
     let i = 0;
     for (; i < args.length; i += 1) {
       const token = args[i]!;
-      if (token === "-" || token === "--") throw new ExecError(`sox: "${token}" is not accepted`);
+      if (token === "-" || token === "--")
+        throw new ExecError(`sox: "${token}" is not accepted`);
       if (token.startsWith("-") && token.length > 1 && !/^-\d/.test(token)) {
         const { spec } = this.lookup(token);
         if (token === "-n") {
@@ -307,26 +357,35 @@ class Checker {
         }
         if (spec.arity === 1) {
           const value = args[++i];
-          if (value === undefined) throw new ExecError(`sox ${token} needs a value`);
+          if (value === undefined)
+            throw new ExecError(`sox ${token} needs a value`);
           this.checkValue(spec.role ?? "text", value, token);
         }
         continue;
       }
       if (files.length >= 2 && SOX_ALL_EFFECTS.has(token)) break;
-      if (token.startsWith("|")) throw new ExecError("sox: piped input (|command) is refused");
+      if (token.startsWith("|"))
+        throw new ExecError("sox: piped input (|command) is refused");
       files.push({ value: token, nul: false });
     }
-    if (files.length < 2) throw new ExecError("sox needs an input and an output (use -n for none)");
+    if (files.length < 2)
+      throw new ExecError("sox needs an input and an output (use -n for none)");
     for (const [index, file] of files.entries()) {
       if (file.nul) continue;
-      this.checkValue(index === files.length - 1 ? "output" : "input", file.value, `file ${index + 1}`);
+      this.checkValue(
+        index === files.length - 1 ? "output" : "input",
+        file.value,
+        `file ${index + 1}`,
+      );
     }
     let effect: string | undefined;
     for (; i < args.length; i += 1) {
       const token = args[i]!;
       if (SOX_ALL_EFFECTS.has(token)) {
         if (!SOX_EFFECT_SET.has(token))
-          throw new ExecError(`sox effect ${token} is refused; allowed: ${[...SOX_EFFECT_SET].join(" ")}`);
+          throw new ExecError(
+            `sox effect ${token} is refused; allowed: ${[...SOX_EFFECT_SET].join(" ")}`,
+          );
         effect = token;
         continue;
       }
@@ -335,28 +394,43 @@ class Checker {
         throw new ExecError(`sox ${effect}: ${token} is refused`);
       if (effect === "spectrogram" && token === "-o") {
         const value = args[++i];
-        if (value === undefined) throw new ExecError("sox spectrogram -o needs a file");
+        if (value === undefined)
+          throw new ExecError("sox spectrogram -o needs a file");
         this.checkValue("output", value, "spectrogram -o");
       }
     }
-    return { argv: ["sox", ...args], outputs: this.outputs, outdirs: this.outdirs };
+    return {
+      argv: ["sox", ...args],
+      outputs: this.outputs,
+      outdirs: this.outdirs,
+    };
   }
 
   /** Check one value against its role; returns the resolved relative path for path roles. */
   checkValue(role: ArgRole, value: string, where: string): string | undefined {
     if (Array.isArray(role)) {
-      if (!role.includes(value)) throw new ExecError(`${this.tool} ${where} must be one of ${role.join(", ")}`);
+      if (!role.includes(value))
+        throw new ExecError(
+          `${this.tool} ${where} must be one of ${role.join(", ")}`,
+        );
       return undefined;
     }
     switch (role) {
       case "number":
-        if (!Number.isFinite(Number(value))) throw new ExecError(`${this.tool} ${where} must be a number`);
+        if (!Number.isFinite(Number(value)))
+          throw new ExecError(`${this.tool} ${where} must be a number`);
         return undefined;
       case "word":
-        if (!WORD.test(value)) throw new ExecError(`${this.tool} ${where}: "${value}" is not a plain word`);
+        if (!WORD.test(value))
+          throw new ExecError(
+            `${this.tool} ${where}: "${value}" is not a plain word`,
+          );
         return undefined;
       case "text":
-        if (value.includes("://")) throw new ExecError(`${this.tool} ${where}: URLs are only accepted by yt-dlp`);
+        if (value.includes("://"))
+          throw new ExecError(
+            `${this.tool} ${where}: URLs are only accepted by yt-dlp`,
+          );
         return undefined;
       case "filter":
         this.checkFilter(value, where);
@@ -376,15 +450,18 @@ class Checker {
   }
 
   private checkUrl(value: string): void {
-    if (this.tool !== "yt-dlp") throw new ExecError(`${this.tool}: URLs are only accepted by yt-dlp`);
+    if (this.tool !== "yt-dlp")
+      throw new ExecError(`${this.tool}: URLs are only accepted by yt-dlp`);
     let url: URL;
     try {
       url = new URL(value);
     } catch {
       throw new ExecError(`yt-dlp: ${value} is not a URL`);
     }
-    if (url.protocol !== "https:") throw new ExecError("yt-dlp: only https:// URLs");
-    if (url.username || url.password) throw new ExecError("yt-dlp: URLs with credentials are refused");
+    if (url.protocol !== "https:")
+      throw new ExecError("yt-dlp: only https:// URLs");
+    if (url.username || url.password)
+      throw new ExecError("yt-dlp: URLs with credentials are refused");
     const host = url.hostname.toLowerCase();
     if (
       host === "localhost" ||
@@ -421,22 +498,40 @@ class Checker {
     }
     filters.push(current);
     for (const raw of filters) {
-      const body = raw.trim().replace(/^(\[[^\]]*\]\s*)+/, "").replace(/(\s*\[[^\]]*\])+$/, "");
+      const body = raw
+        .trim()
+        .replace(/^(\[[^\]]*\]\s*)+/, "")
+        .replace(/(\s*\[[^\]]*\])+$/, "");
       if (!body) continue;
       const eq = body.indexOf("=");
-      const name = (eq < 0 ? body : body.slice(0, eq)).trim().replace(/@.*$/, "").toLowerCase();
-      if (!/^[a-z0-9_]+$/.test(name)) throw new ExecError(`${this.tool} ${where}: bad filter name "${name}"`);
+      const name = (eq < 0 ? body : body.slice(0, eq))
+        .trim()
+        .replace(/@.*$/, "")
+        .toLowerCase();
+      if (!/^[a-z0-9_]+$/.test(name))
+        throw new ExecError(`${this.tool} ${where}: bad filter name "${name}"`);
       if ((FFMPEG_REFUSED_FILTERS as readonly string[]).includes(name))
-        throw new ExecError(`${this.tool} ${where}: the ${name} filter is refused (it loads code or reads files)`);
+        throw new ExecError(
+          `${this.tool} ${where}: the ${name} filter is refused (it loads code or reads files)`,
+        );
       if (eq < 0) continue;
       const options = body.slice(eq + 1);
       for (const part of options.split(":")) {
         const kv = part.indexOf("=");
         const key = kv < 0 ? "" : part.slice(0, kv).trim().toLowerCase();
-        const value = (kv < 0 ? part : part.slice(kv + 1)).trim().replace(/^'|'$/g, "");
-        if (value.includes("://")) throw new ExecError(`${this.tool} ${where}: URLs are refused in filters`);
-        const pathLike = value.startsWith("/") || value.startsWith("~") || value.includes("..");
-        if ((key && FILTER_FILE_KEYS.has(key)) || pathLike) this.input(value, `${where} ${name}`);
+        const value = (kv < 0 ? part : part.slice(kv + 1))
+          .trim()
+          .replace(/^'|'$/g, "");
+        if (value.includes("://"))
+          throw new ExecError(
+            `${this.tool} ${where}: URLs are refused in filters`,
+          );
+        const pathLike =
+          value.startsWith("/") ||
+          value.startsWith("~") ||
+          value.includes("..");
+        if ((key && FILTER_FILE_KEYS.has(key)) || pathLike)
+          this.input(value, `${where} ${name}`);
       }
     }
   }
@@ -447,7 +542,9 @@ class Checker {
 
   private input(value: string, where: string): string {
     if (/^[a-z][a-z0-9+.-]*:/i.test(value) && !/^[a-z]:[\\/]/i.test(value))
-      throw new ExecError(`${this.tool} ${where}: protocol inputs (${value.split(":")[0]}:) are refused`);
+      throw new ExecError(
+        `${this.tool} ${where}: protocol inputs (${value.split(":")[0]}:) are refused`,
+      );
     const candidate = isAbsolute(value) ? value : resolve(this.root, value);
     let real: string;
     try {
@@ -455,28 +552,46 @@ class Checker {
     } catch {
       throw new ExecError(`${this.tool} ${where}: ${value} does not exist`);
     }
-    const roots = [this.root, ...(this.ctx.readRoots ?? []).map((r) => safeReal(r)).filter((r): r is string => !!r)];
-    if (!this.inside(real, roots)) throw new ExecError(`${this.tool} ${where}: ${value} is outside the project`);
+    const roots = [
+      this.root,
+      ...(this.ctx.readRoots ?? [])
+        .map((r) => safeReal(r))
+        .filter((r): r is string => !!r),
+    ];
+    if (!this.inside(real, roots))
+      throw new ExecError(
+        `${this.tool} ${where}: ${value} is outside the project`,
+      );
     return relative(this.root, real).split(sep).join("/");
   }
 
   private output(value: string, where: string, directory: boolean): string {
     if (/^[a-z][a-z0-9+.-]*:/i.test(value))
-      throw new ExecError(`${this.tool} ${where}: protocol outputs (${value.split(":")[0]}:) are refused`);
-    const candidate = isAbsolute(value) ? resolve(value) : resolve(this.root, value);
+      throw new ExecError(
+        `${this.tool} ${where}: protocol outputs (${value.split(":")[0]}:) are refused`,
+      );
+    const candidate = isAbsolute(value)
+      ? resolve(value)
+      : resolve(this.root, value);
     const rel = relative(this.root, candidate);
     if (!rel || rel.startsWith("..") || isAbsolute(rel))
-      throw new ExecError(`${this.tool} ${where}: ${value} is outside the project`);
+      throw new ExecError(
+        `${this.tool} ${where}: ${value} is outside the project`,
+      );
     const posix = rel.split(sep).join("/");
     if (!(this.ctx.writeScope ?? defaultWriteScope)(posix))
-      throw new ExecError(`${this.tool} ${where}: ${posix} is outside the write scope`);
+      throw new ExecError(
+        `${this.tool} ${where}: ${posix} is outside the write scope`,
+      );
     // Every existing ancestor must stay inside (symlinked folders cannot leave).
     let probe = directory ? candidate : dirname(candidate);
     for (;;) {
       if (existsSync(probe)) {
         const real = realpathSync(probe);
         if (!this.inside(real, [this.root]))
-          throw new ExecError(`${this.tool} ${where}: ${value} escapes the project through a symlink`);
+          throw new ExecError(
+            `${this.tool} ${where}: ${value} escapes the project through a symlink`,
+          );
         break;
       }
       const parent = dirname(probe);
@@ -486,17 +601,28 @@ class Checker {
     if (!directory && existsSync(candidate)) {
       const info = lstatSync(candidate);
       if (info.isSymbolicLink() || !info.isFile())
-        throw new ExecError(`${this.tool} ${where}: ${posix} exists and is not a regular file`);
+        throw new ExecError(
+          `${this.tool} ${where}: ${posix} exists and is not a regular file`,
+        );
     }
     (directory ? this.outdirs : this.outputs).push(posix);
     return posix;
   }
 
   private checkTemplate(template: string, pathsDir: string | undefined): void {
-    if (template.includes("..")) throw new ExecError("yt-dlp -o must not contain ..");
-    const literal = template.replace(/%\([^)]*\)[-#0 +]*\d*\.?\d*[a-zA-Z]/g, "x");
-    if (/%/.test(literal)) throw new ExecError("yt-dlp -o: unsupported template");
-    this.output(pathsDir && !isAbsolute(literal) ? join(pathsDir, literal) : literal, "-o", false);
+    if (template.includes(".."))
+      throw new ExecError("yt-dlp -o must not contain ..");
+    const literal = template.replace(
+      /%\([^)]*\)[-#0 +]*\d*\.?\d*[a-zA-Z]/g,
+      "x",
+    );
+    if (/%/.test(literal))
+      throw new ExecError("yt-dlp -o: unsupported template");
+    this.output(
+      pathsDir && !isAbsolute(literal) ? join(pathsDir, literal) : literal,
+      "-o",
+      false,
+    );
   }
 }
 
@@ -560,7 +686,10 @@ function snapshot(root: string, dirs: readonly string[]): Map<string, string> {
       else if (entry.isFile()) {
         try {
           const info = statSync(path);
-          seen.set(relative(root, path).split(sep).join("/"), `${info.size}:${info.mtimeMs}`);
+          seen.set(
+            relative(root, path).split(sep).join("/"),
+            `${info.size}:${info.mtimeMs}`,
+          );
         } catch {
           // Gone between readdir and stat.
         }
@@ -580,7 +709,10 @@ class Tail {
     const bytes = Buffer.from(this.text);
     return bytes.length <= EXEC_LIMITS.tailBytes
       ? this.text
-      : bytes.subarray(bytes.length - EXEC_LIMITS.tailBytes).toString("utf8").replace(/^�+/, "");
+      : bytes
+          .subarray(bytes.length - EXEC_LIMITS.tailBytes)
+          .toString("utf8")
+          .replace(/^�+/, "");
   }
 }
 
@@ -590,12 +722,18 @@ function newLogId(): string {
 }
 
 /** Run one checked command; throws ExecError on a refusal or missing tool. */
-export async function runExec(request: ExecRequest, ctx: ExecContext): Promise<ExecResult> {
+export async function runExec(
+  request: ExecRequest,
+  ctx: ExecContext,
+): Promise<ExecResult> {
   const checked = checkExecArgv(request.argv, ctx);
   if (!checked.ok) throw new ExecError(checked.reason);
   const timeoutMs = Math.min(
     EXEC_LIMITS.maxTimeoutMs,
-    Math.max(1000, Math.round(request.timeoutMs ?? EXEC_LIMITS.defaultTimeoutMs)),
+    Math.max(
+      1000,
+      Math.round(request.timeoutMs ?? EXEC_LIMITS.defaultTimeoutMs),
+    ),
   );
   const tool = checked.argv[0]!;
   let command = ctx.runner.which(tool);
@@ -614,7 +752,9 @@ export async function runExec(request: ExecRequest, ctx: ExecContext): Promise<E
   }
   if (!command) {
     const hint = (EXEC_INSTALL as Record<string, string>)[tool];
-    throw new ExecError(`${tool} is not installed${hint ? `; install with: ${hint}` : ""} (dawg never installs tools)`);
+    throw new ExecError(
+      `${tool} is not installed${hint ? `; install with: ${hint}` : ""} (dawg never installs tools)`,
+    );
   }
   const root = realpathSync(ctx.root);
   const logId = newLogId();
@@ -628,12 +768,16 @@ export async function runExec(request: ExecRequest, ctx: ExecContext): Promise<E
   const watch = [
     ...checked.outputs.map((path) => dirname(path)),
     ...checked.outdirs,
-    ...(ctx.trackSlug ? [`tracks/${ctx.trackSlug}/samples`, `tracks/${ctx.trackSlug}/downloads`] : []),
+    ...(ctx.trackSlug
+      ? [`tracks/${ctx.trackSlug}/samples`, `tracks/${ctx.trackSlug}/downloads`]
+      : []),
     ...(tool === "demucs" && checked.outdirs.length === 0 ? ["separated"] : []),
   ];
   const before = snapshot(root, watch);
-  for (const out of checked.outputs) mkdirSync(join(root, dirname(out)), { recursive: true });
-  for (const out of checked.outdirs) mkdirSync(join(root, out), { recursive: true });
+  for (const out of checked.outputs)
+    mkdirSync(join(root, dirname(out)), { recursive: true });
+  for (const out of checked.outdirs)
+    mkdirSync(join(root, out), { recursive: true });
 
   const enqueued = Date.now();
   const release = await acquire(ctx.signal);
@@ -692,7 +836,10 @@ export async function runExec(request: ExecRequest, ctx: ExecContext): Promise<E
           if (slice.length < chunk.length) logTruncated = true;
         } else logTruncated = true;
         if (isErr && ctx.progress && Date.now() - lastProgress > 250) {
-          const line = text.split(/[\r\n]+/).filter((l) => l.trim()).pop();
+          const line = text
+            .split(/[\r\n]+/)
+            .filter((l) => l.trim())
+            .pop();
           if (line) {
             lastProgress = Date.now();
             ctx.progress(`${tool} ${line.trim().slice(0, 120)}`);
@@ -716,7 +863,9 @@ export async function runExec(request: ExecRequest, ctx: ExecContext): Promise<E
         } catch {
           // Group already empty.
         }
-        resolveExit(code ?? (signal ? 128 + (signal === "SIGKILL" ? 9 : 15) : 1));
+        resolveExit(
+          code ?? (signal ? 128 + (signal === "SIGKILL" ? 9 : 15) : 1),
+        );
       });
     });
   } finally {
@@ -760,7 +909,12 @@ function recordHistory(result: ExecResult, ctx: ExecContext): void {
       kind: "tool",
       sub: "exec",
       summary: `exec ${result.argv[0]} · exit ${result.exitCode} · ${result.ms} ms`,
-      payload: { argv: result.argv, exitCode: result.exitCode, ms: result.ms, logId: result.logId },
+      payload: {
+        argv: result.argv,
+        exitCode: result.exitCode,
+        ms: result.ms,
+        logId: result.logId,
+      },
     });
     for (const path of result.outputs)
       history.append({
@@ -781,9 +935,21 @@ export function readExecLog(
   rootDir: string,
   logId: string,
   offset = 0,
-): Readonly<{ logId: string; offset: number; nextOffset?: number; size: number; text: string }> {
+): Readonly<{
+  logId: string;
+  offset: number;
+  nextOffset?: number;
+  size: number;
+  text: string;
+}> {
   if (!LOG_ID.test(logId)) throw new ExecError(`no exec log ${logId}`);
-  const path = join(realpathSync(rootDir), ".dawg", "logs", "exec", `${logId}.log`);
+  const path = join(
+    realpathSync(rootDir),
+    ".dawg",
+    "logs",
+    "exec",
+    `${logId}.log`,
+  );
   let size: number;
   try {
     const info = lstatSync(path);

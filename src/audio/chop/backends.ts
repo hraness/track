@@ -42,17 +42,27 @@ function assertAbsolute(...paths: string[]): void {
 export function ffmpegConvertArgv(
   input: string,
   output: string,
-  options: Readonly<{ format: "wav" | "flac" | "mp3"; sampleRate?: number; channels?: 1 | 2 }>,
+  options: Readonly<{
+    format: "wav" | "flac" | "mp3";
+    sampleRate?: number;
+    channels?: 1 | 2;
+  }>,
 ): string[] {
   assertAbsolute(input, output);
   const codec =
-    options.format === "flac" ? ["-c:a", "flac"] : options.format === "mp3" ? ["-c:a", "libmp3lame", "-q:a", "2"] : ["-c:a", "pcm_s24le"];
+    options.format === "flac"
+      ? ["-c:a", "flac"]
+      : options.format === "mp3"
+        ? ["-c:a", "libmp3lame", "-q:a", "2"]
+        : ["-c:a", "pcm_s24le"];
   return [
     ...FFMPEG_PRELUDE,
     "-i",
     input,
     "-vn",
-    ...(options.sampleRate ? ["-ar", String(Math.round(options.sampleRate))] : []),
+    ...(options.sampleRate
+      ? ["-ar", String(Math.round(options.sampleRate))]
+      : []),
     ...(options.channels ? ["-ac", String(options.channels)] : []),
     ...codec,
     "-f",
@@ -70,7 +80,8 @@ export function rubberbandArgv(
   assertAbsolute(input, output);
   const argv = ["-3", "-q"];
   if (options.ratio !== undefined) argv.push("-t", options.ratio.toFixed(6));
-  if (options.semitones !== undefined) argv.push("-p", options.semitones.toFixed(4));
+  if (options.semitones !== undefined)
+    argv.push("-p", options.semitones.toFixed(4));
   if (options.formant) argv.push("-F");
   argv.push(input, output);
   return argv;

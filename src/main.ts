@@ -3863,7 +3863,9 @@ async function chopCommand(
         : {}),
     });
   } catch (error) {
-    return fail(`chop ${command.op} · ${error instanceof Error ? error.message : String(error)}`);
+    return fail(
+      `chop ${command.op} · ${error instanceof Error ? error.message : String(error)}`,
+    );
   } finally {
     tui.activity.setSpinner(undefined);
   }
@@ -3883,7 +3885,9 @@ async function chopCommand(
         },
       );
     } catch (error) {
-      return fail(`chop slice · ${error instanceof Error ? error.message : String(error)}`);
+      return fail(
+        `chop slice · ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
     let next = score;
     for (const operation of loaded.operations)
@@ -3916,9 +3920,13 @@ function chopResultLines(result: ChopResult): string[] {
       `${point.t.toFixed(3)} s${point.end !== undefined ? ` – ${point.end.toFixed(3)} s` : ""}${point.score !== undefined ? ` · score ${point.score.toFixed(2)}` : ""}${point.label ? ` · ${point.label}` : ""}`,
     );
   if ((result.points?.length ?? 0) > 64)
-    lines.push(`… ${result.points!.length - 64} more (dawg media chop … --json)`);
+    lines.push(
+      `… ${result.points!.length - 64} more (dawg media chop … --json)`,
+    );
   for (const output of result.outputs)
-    lines.push(`→ ${output.path} · ${output.seconds.toFixed(2)} s · peak ${output.peakDb} dB`);
+    lines.push(
+      `→ ${output.path} · ${output.seconds.toFixed(2)} s · peak ${output.peakDb} dB`,
+    );
   if (result.truncated)
     lines.push(
       `analyzed ${result.truncated.analysedSeconds} s of ${result.truncated.totalSeconds} s`,

@@ -198,9 +198,9 @@ describe("runChop", () => {
 
 describe("chop path confinement", () => {
   test("inputs outside the project are refused", async () => {
-    await expect(
-      runChop("info", { input: "/etc/hosts" }, ctx),
-    ).rejects.toThrow(/outside the project/);
+    await expect(runChop("info", { input: "/etc/hosts" }, ctx)).rejects.toThrow(
+      /outside the project/,
+    );
     await expect(runChop("info", { input: "../x.wav" }, ctx)).rejects.toThrow();
   });
 
@@ -223,9 +223,7 @@ describe("chop path confinement", () => {
     const outside = await mkdtemp(join(tmpdir(), "dawg-out-"));
     try {
       await symlink(outside, join(root, "link"));
-      await expect(resolveOutput(ctx, "link/x.wav")).rejects.toThrow(
-        /symlink/,
-      );
+      await expect(resolveOutput(ctx, "link/x.wav")).rejects.toThrow(/symlink/);
       await writeFile(join(outside, "secret.wav"), encodeWav24(hits()));
       await expect(
         runChop("info", { input: "link/secret.wav" }, ctx),
@@ -258,13 +256,16 @@ describe("external backends (skipped when not installed)", () => {
     expect(result.outputs[0]!.path).toBe("samples/loop-conv.flac");
   });
 
-  test.skipIf(!hasRubberband)("rubberband stretches when installed", async () => {
-    const result = await runChop(
-      "stretch",
-      { input: "loop.wav", ratio: 2 },
-      { ...ctx, runner: systemRunner },
-    );
-    expect(result.backend).toBe("rubberband");
-    expect(result.outputs[0]!.seconds).toBeCloseTo(4, 0);
-  });
+  test.skipIf(!hasRubberband)(
+    "rubberband stretches when installed",
+    async () => {
+      const result = await runChop(
+        "stretch",
+        { input: "loop.wav", ratio: 2 },
+        { ...ctx, runner: systemRunner },
+      );
+      expect(result.backend).toBe("rubberband");
+      expect(result.outputs[0]!.seconds).toBeCloseTo(4, 0);
+    },
+  );
 });

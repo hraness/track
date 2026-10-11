@@ -10,7 +10,11 @@ import { parseChopArgs, parseChopOp } from "../audio/chop/args.ts";
 import { ChopError } from "../audio/chop/pcm.ts";
 import { runChop, stemOf } from "../audio/chop/run.ts";
 import { slicesToSampler } from "../audio/chop/sampler.ts";
-import { CHOP_OPS, type ChopContext, type ChopResult } from "../audio/chop/types.ts";
+import {
+  CHOP_OPS,
+  type ChopContext,
+  type ChopResult,
+} from "../audio/chop/types.ts";
 import type { MediaRunContext } from "../media/types.ts";
 import { trackSlug } from "../../core/slug.ts";
 import type { AgentTool, ToolContext, ToolPlan } from "./tools.ts";
@@ -52,7 +56,10 @@ export const AUDIO_TOOL: AgentTool = {
 };
 
 function chopContext(
-  base: Pick<MediaRunContext, "projectRoot" | "trackSlug" | "runner" | "signal"> &
+  base: Pick<
+    MediaRunContext,
+    "projectRoot" | "trackSlug" | "runner" | "signal"
+  > &
     Partial<Pick<MediaRunContext, "progress" | "chopHistory">>,
   tool: ToolContext,
 ): ChopContext {
@@ -84,7 +91,10 @@ function planAudio(raw: Record<string, unknown>, tool: ToolContext): ToolPlan {
   } catch (error) {
     throw new ChopError(error instanceof Error ? error.message : String(error));
   }
-  const label = `audio ${op}${args.input ? ` ${args.input}` : ""}`.slice(0, 120);
+  const label = `audio ${op}${args.input ? ` ${args.input}` : ""}`.slice(
+    0,
+    120,
+  );
   if (op === "audition") {
     return {
       kind: "action",
@@ -96,7 +106,10 @@ function planAudio(raw: Record<string, unknown>, tool: ToolContext): ToolPlan {
           root,
           runner: systemRunner,
           signal: action.signal ?? new AbortController().signal,
-          tempo: { bpm: tool.score.tempoBpm, beatsPerBar: tool.score.beatsPerBar },
+          tempo: {
+            bpm: tool.score.tempoBpm,
+            beatsPerBar: tool.score.beatsPerBar,
+          },
           ...(action.preview?.playFile
             ? {
                 audition: async (path: string, from?: number, to?: number) => {
@@ -105,7 +118,10 @@ function planAudio(raw: Record<string, unknown>, tool: ToolContext): ToolPlan {
               }
             : {}),
         });
-        return { content: JSON.stringify({ ok: true, summary: result.summary }), summary: result.summary };
+        return {
+          content: JSON.stringify({ ok: true, summary: result.summary }),
+          summary: result.summary,
+        };
       },
     };
   }
@@ -127,20 +143,32 @@ function planAudio(raw: Record<string, unknown>, tool: ToolContext): ToolPlan {
               trackSlug: slug,
               runner: action.media?.runner ?? systemRunner,
               signal: action.signal ?? new AbortController().signal,
-              ...(action.media?.chopHistory ? { chopHistory: action.media.chopHistory } : {}),
+              ...(action.media?.chopHistory
+                ? { chopHistory: action.media.chopHistory }
+                : {}),
             },
             tool,
           ),
         );
-        const loaded = slicesToSampler(tool.score, trackId, stemOf(args.input ?? "slice"), result.outputs, {
-          ...(args.pattern ? { pattern: true } : {}),
-          newNoteId: (index) => tool.newNoteId(trackId, index),
-        });
+        const loaded = slicesToSampler(
+          tool.score,
+          trackId,
+          stemOf(args.input ?? "slice"),
+          result.outputs,
+          {
+            ...(args.pattern ? { pattern: true } : {}),
+            newNoteId: (index) => tool.newNoteId(trackId, index),
+          },
+        );
         return {
           kind: "score",
           operations: loaded.operations,
           trackId,
-          summary: `${result.summary} · ${loaded.voices.length} voices on ${trackId}${loaded.notes ? `, ${loaded.notes} notes` : ""}`.slice(0, 160),
+          summary:
+            `${result.summary} · ${loaded.voices.length} voices on ${trackId}${loaded.notes ? `, ${loaded.notes} notes` : ""}`.slice(
+              0,
+              160,
+            ),
         };
       },
     };
@@ -150,7 +178,11 @@ function planAudio(raw: Record<string, unknown>, tool: ToolContext): ToolPlan {
     summary: label,
     run: async (media) => {
       const result = await runChop(op, args, chopContext(media, tool));
-      return { summary: result.summary, content: chopContent(result), outputs: result.outputs.map((o) => o.path) };
+      return {
+        summary: result.summary,
+        content: chopContent(result),
+        outputs: result.outputs.map((o) => o.path),
+      };
     },
   };
 }

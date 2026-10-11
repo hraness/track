@@ -41,7 +41,10 @@ export function slicesToSampler(
   trackId: string,
   stem: string,
   outputs: readonly ChopOutput[],
-  options: Readonly<{ pattern?: boolean; newNoteId: (index: number) => string }>,
+  options: Readonly<{
+    pattern?: boolean;
+    newNoteId: (index: number) => string;
+  }>,
 ): SliceToSampler {
   if (!ID.test(trackId))
     throw new ChopError("track must be an id (letters, digits, . _ -)");
@@ -52,8 +55,12 @@ export function slicesToSampler(
       `track ${trackId} is ${existing.instrument}, not a sampler · pick another track or a new id`,
     );
   if (existing?.sampler && existing.sampler.mode !== "oneshot")
-    throw new ChopError(`track ${trackId} is a keyed sampler; slices need one-shot`);
-  const voices: Record<string, SampleRef> = { ...(existing?.sampler?.voices ?? {}) };
+    throw new ChopError(
+      `track ${trackId} is a keyed sampler; slices need one-shot`,
+    );
+  const voices: Record<string, SampleRef> = {
+    ...(existing?.sampler?.voices ?? {}),
+  };
   const names: string[] = [];
   outputs.forEach((output, index) => {
     let name = sliceVoiceName(stem, index);
@@ -83,7 +90,9 @@ export function slicesToSampler(
     const first = outputs[0]!.from ?? 0;
     const room = SCORE_LIMITS.maxNotes - score.notes.length;
     if (outputs.length > room)
-      throw new ChopError(`the pattern needs ${outputs.length} notes; the score has room for ${room}`);
+      throw new ChopError(
+        `the pattern needs ${outputs.length} notes; the score has room for ${room}`,
+      );
     outputs.forEach((output, index) => {
       const start = Math.round(((output.from ?? 0) - first) * ticksPerSecond);
       operations.push({
@@ -92,7 +101,10 @@ export function slicesToSampler(
           id: options.newNoteId(index),
           trackId,
           startTick: Math.max(0, start),
-          durationTicks: Math.max(1, Math.round(output.seconds * ticksPerSecond)),
+          durationTicks: Math.max(
+            1,
+            Math.round(output.seconds * ticksPerSecond),
+          ),
           pitch: slots.get(names[index]!) ?? SAMPLER_FIRST_SLOT,
           velocity: 1,
         },

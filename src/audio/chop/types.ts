@@ -49,7 +49,12 @@ export const CHOP_ANALYSIS_OPS: ReadonlySet<ChopOp> = new Set<ChopOp>([
   "audition",
 ]);
 
-export const CHOP_SNAPS = Object.freeze(["zero", "onset", "beat", "none"] as const);
+export const CHOP_SNAPS = Object.freeze([
+  "zero",
+  "onset",
+  "beat",
+  "none",
+] as const);
 export const CHOP_METHODS = Object.freeze([
   "silence",
   "onset",
@@ -57,8 +62,17 @@ export const CHOP_METHODS = Object.freeze([
   "beats",
   "grid",
 ] as const);
-export const CHOP_CURVES = Object.freeze(["linear", "exp", "log", "scurve"] as const);
-export const CHOP_FILTERS = Object.freeze(["highpass", "lowpass", "bandpass"] as const);
+export const CHOP_CURVES = Object.freeze([
+  "linear",
+  "exp",
+  "log",
+  "scurve",
+] as const);
+export const CHOP_FILTERS = Object.freeze([
+  "highpass",
+  "lowpass",
+  "bandpass",
+] as const);
 export const CHOP_FORMATS = Object.freeze(["wav", "flac", "mp3"] as const);
 
 export type ChopArgs = Readonly<{

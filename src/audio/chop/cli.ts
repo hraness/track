@@ -67,14 +67,23 @@ export async function runChopCli(
   try {
     const { op, args } = chopFromWords(words);
     if (args.pattern)
-      throw new Error("--pattern loads slices into a sampler track; that needs a session · use /chop slice … in dawg");
+      throw new Error(
+        "--pattern loads slices into a sampler track; that needs a session · use /chop slice … in dawg",
+      );
     const result: ChopResult = await runChop(op, args, {
       root: cwd,
       runner: options.runner ?? systemRunner,
       signal,
       actor: { kind: "human" },
-      ...(folder ? { trackSlug: trackSlug(folder), outDir: `tracks/${trackSlug(folder)}/samples` } : {}),
-      ...(bpm && Number.isFinite(bpm) ? { tempo: { bpm, beatsPerBar: 4 } } : {}),
+      ...(folder
+        ? {
+            trackSlug: trackSlug(folder),
+            outDir: `tracks/${trackSlug(folder)}/samples`,
+          }
+        : {}),
+      ...(bpm && Number.isFinite(bpm)
+        ? { tempo: { bpm, beatsPerBar: 4 } }
+        : {}),
     });
     if (!json) stderr.write(`✓ ${result.summary}\n`);
     stdout.write(`${JSON.stringify(result, null, 2)}\n`);
