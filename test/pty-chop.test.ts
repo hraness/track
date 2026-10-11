@@ -22,12 +22,11 @@ test.skipIf(!supported)(
     try {
       await t.until(() => t.vt.text().includes(" NOW "), "prompt");
       await t.type("/chop info tone.wav\r", "chop info");
-      await t.until(() => t.vt.text().includes("tone.wav"), "info receipt");
       const text = t.vt.text();
       expect(text).toMatch(/1(\.0+)?\s?s|0:01/);
       expect(text).toContain("44100 Hz");
+      expect(text).toContain("peak -6 dB");
       await t.type("/chop reverse tone.wav\r", "chop reverse");
-      await t.until(() => /reverse/i.test(t.vt.text()), "reverse receipt");
       const samples = await readdir(
         join(dir, "tracks", "lead", "samples"),
       ).catch(() => []);
