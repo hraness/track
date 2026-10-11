@@ -17,7 +17,7 @@
  * Three forms, by terminal size, all showing every mapped key:
  *
  *   full     ≥120 columns: wider keys, plus the bottom row (Z X C V M) as
- *            keys labelled oct- oct+ vel- vel+ click, and the panel.
+ *            keys labeled oct- oct+ vel- vel+ click, and the panel.
  *   compact  ≥80 columns: the two note rows with the panel on the right.
  *   minimal  the 60-column minimum: the two note rows, the panel folded
  *            into a line underneath.
@@ -188,7 +188,7 @@ export function playKeysLayout(
   ) => {
     for (const [key, x] of entries) {
       // A held key carries a mark as well as reverse video, so it reads
-      // where attributes are off (TERM=dumb) and in any colour depth.
+      // where attributes are off (TERM=dumb) and in any color depth.
       const letter = key.key.toUpperCase();
       spans.push({
         row,
@@ -333,7 +333,7 @@ function keyStyle(
 /**
  * Paint the keyboard at row `y`, at most `height` rows; returns the rows
  * used. Lit keys fill their cap's width on both rows, so a held key reads
- * as one solid key in any colour depth.
+ * as one solid key in any color depth.
  */
 export function paintPlayKeys(
   buffer: CellBuffer,

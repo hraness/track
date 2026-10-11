@@ -131,7 +131,7 @@ export type PlayLayout = Readonly<{
  * (1+) O and ; crash, P and ' ride. Labels come from what the renderer
  * plays for each pitch (`drumVoiceNamed`, then `metalKindForPitch`), so a
  * key prints what it sounds; a pitch the kit only plays as its fallback
- * click prints unlabelled.
+ * click prints unlabeled.
  */
 export function drumKeyLabels(calibrated = false): ReadonlyMap<number, string> {
   const labels = new Map<number, string>();

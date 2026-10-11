@@ -150,7 +150,7 @@ describe("play keys layout", () => {
     expect(s.key?.lit).toBe(true);
   });
 
-  test("record and count-in state read without colour", () => {
+  test("record and count-in state read without color", () => {
     const base = view(false);
     const rec = (over: Partial<PlayKeysView>, unicode = true) =>
       text(playKeysLayout({ ...base, ...over }, 80, 24, unicode), 80).join(

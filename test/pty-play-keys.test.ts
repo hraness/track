@@ -1,7 +1,7 @@
 /**
  * Play mode's on-screen keyboard in a real PTY: the keys drawn in QWERTY
  * rows with what they play underneath, held keys lit (reversed, so it
- * reads without colour), and a recorded pass that lands in the track.
+ * reads without color), and a recorded pass that lands in the track.
  */
 import { expect, test } from "bun:test";
 import { launch, supported } from "./pty-harness.ts";
@@ -104,7 +104,7 @@ test.skipIf(!supported)(
       for (const sound of ["rim", "clap", "chh", "ohh", "tom"])
         expect(keys).toContain(sound);
       expect(keys).toMatch(/^[\x20-\x7e\n]*$/);
-      // Held (latched) keys reverse even with no colour at all.
+      // Held (latched) keys reverse even with no color at all.
       await t.type("\t");
       await t.type("a");
       await t.until(() => lit(t, "A"), "A lit");
