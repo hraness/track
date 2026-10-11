@@ -101,7 +101,7 @@ function everyPlayKey(text: string): boolean {
   const top = text.split("\n").slice(1, 8).join("\n");
   return [...PLAY_KEYS].every((letter) =>
     new RegExp(
-      `(?<=^| )${letter.replace(/[;']/, "\\$&")}[•*]?(?= |$)`,
+      `(?<=^| )${letter.replace(/[;']/g, "\\$&")}[•*]?(?= |$)`,
       "m",
     ).test(top),
   );
