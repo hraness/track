@@ -75,7 +75,7 @@ export const RHYTHM_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "set_rhythm",
     description:
-      "Preferred for drums: one row per voice of a kit/oneshot track; its notes regenerate from the row. pulses (4) over steps (16..64) Euclidean, rotate later; division 1/32..1/1 (1/16) is one step, and the steps×division cycle repeats from beat 0 to fill the loop (E(4,16) at 1/16 = a hit every beat, four on the floor; a backbeat on counts 2 and 4 is grid '....x.......x...' or E(2,16) rotate 4; offbeat 'and's are grid '..x.' ); grid 'x.X.' explicit (X accent); repeats 0..16 after each pulse every time, pace -1..1, ramp -1..1; velocity (0.8); accent 0..1 on E(accents,pulses); gate; legato; probability+seed; swing/nudge ±0.5 step; cycles [{pulses,rotate,repeats,probability,velocity}] per pass. remove [voices] (freeze keeps notes).",
+      "Preferred for drums: one Euclidean or grid row per voice of a kit track (pulses over steps, rotate, division, grid 'x.X.', repeats, accent, swing, probability); notes regenerate from the row. remove [voices].",
     parameters: {
       type: "object",
       properties: {

@@ -88,7 +88,8 @@ export function granularToolCommands(
 export const GRANULAR_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "set_granular",
-    description: `Make a track a granular instrument (offline, nothing to download) or shape it. preset: ${GRANULAR_PRESET_NAMES.join(" ")}. src: a built-in synth source synth:<${synthSourceNames().slice(0, 8).join("|")}|…>[@note]; on a sampler track the first (or named voice) sample is the source. params (null unsets): grain s, overlap, scan (head speed, 0 held), pos, begin, end, spray, jitter, pitch st, detune, shimmer, shimint, spread, window (hann tukey gauss tri perc rperc), reverse 0..1, freeze, repeat, hold, drift, drate, attack, release, veltone, gain, seed, root. reset keeps preset and source; off returns to the previous voice.`,
+    description:
+      "Make a track a granular instrument or shape it: preset, src (synth:<name>[@note] or its sampler voice), params (null unsets), reset, off.",
     parameters: {
       type: "object",
       properties: {

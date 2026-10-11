@@ -745,15 +745,9 @@ describe("text agent workspace tools", () => {
   test("the op catalog stays well under the xcb input budget and names the file tools", async () => {
     const { renderToolCatalog } = await import("./xcb-agent.ts");
     const catalog = renderToolCatalog();
-    // The real cap is XCB_LIMITS.maxInputBytes (1 MiB); this keeps the
-    // catalog a small share of it (~6.9%) as rhythm, pattern, chord, 0.6 and
-    // 0.6.1 instrument tools land (0.6.1 guitar: strum_chords, set_guitar;
-    // organ: set_keys drawbars, registers, stops and rotary;
-    // granular: resample; gamelan-winds: set_modal presets, set_wind;
-    // bowed: +13 string presets in set_string's enum, set_sample vel/rr;
-    // 0.7 voice: set_formant, set_sing, set_vowels, place_clip, edit_clip,
-    // set_lyrics and the later voice lanes' tools).
-    expect(catalog.length).toBeLessThan(72_000);
+    // The cap and its measurement live in catalog-budget.ts.
+    const { CATALOG_BUDGET } = await import("./catalog-budget.ts");
+    expect(catalog.length).toBeLessThan(CATALOG_BUDGET);
     for (const name of [
       "list_files",
       "read_file",

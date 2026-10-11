@@ -224,7 +224,7 @@ export const PACK_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "use_sound",
     description:
-      'Put a pack sound on a track through the sampler. sound is <pack>/<sound>[:<n>] (n picks a file, like Strudel s("bd:3")), a kit/bank name or Strudel bank nickname (909, 808, linn, TR909, tr808, sp12, dmx, RolandTR909, tidal-drum-machines/RolandTR707) to load a whole kit, or a keyed instrument such as gm/gm_acoustic_grand_piano or piano/piano. The file is fetched and pinned by sha256 so renders stay reproducible. Drum hits on the track keep playing the matching kit voice.',
+      "Put a pack sound on a track through the sampler: <pack>/<sound>[:n], a kit/bank name (909, 808 …) or a keyed instrument; pinned by sha256.",
     parameters: {
       type: "object",
       properties: {
@@ -293,7 +293,7 @@ export const PACK_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "set_wavetable",
     description:
-      "Make a track a wavetable synth and shape it (Strudel names). table: basic (sine>tri>saw>square), pwm, formant, harmonics (offline), wt_digital:0-4, wt_vgame:0-10 (Strudel uzu-wavetables), pack:<pack>/<sound>[:n], or a project table from make_wavetable (tracks/<slug>/wavetables/<name>.wav); omit to keep. wt: position 0..1. wtenv/wtattack/wtdecay/wtsustain/wtrelease: position envelope (amount -1..1, seconds). wtrate Hz/wtdepth: position LFO. warp+warpmode bend the phase. wtphaserand: start phase spread. Automate position with set_automation wt.",
+      "Make a track a wavetable synth and shape it (Strudel names): table, wt position, wt envelope and LFO, warp. Automate position with set_automation wt.",
     parameters: {
       type: "object",
       properties: {

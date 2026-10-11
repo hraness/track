@@ -163,7 +163,7 @@ export function previewSoundTool(
   return {
     name: "preview_sound",
     description:
-      "Hear a track, or a candidate sound change, without committing it. changes: sound tool calls to try ({tool, args} for set_fx, set_rig, set_synth, set_string, set_modal, set_wind, set_wavetable, set_instrument, set_sample, fit_sample, set_mix, set_automation, set_drum_kit, use_sound), applied to a copy. Renders the track's notes over up to 4 bars (or a short phrase by role when it has none), solo or in context, and returns RMS/peak dBFS, spectral centroid and a one-line description for the current and the candidate sound. When the user's window is open it plays the snippet once. Then commit with the normal tools if it sounds right.",
+      "Hear a track, or candidate sound tool calls (changes: [{tool, args}]), without committing: returns loudness, brightness and a one-line description for current and candidate, and plays it once.",
     parameters: {
       type: "object",
       properties: {

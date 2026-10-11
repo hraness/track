@@ -152,7 +152,8 @@ function voicingOf(args: Record<string, unknown>): {
 export const CHORD_TOOLS: readonly AgentTool[] = Object.freeze([
   {
     name: "suggest_progression",
-    description: `Read-only: voice-led diatonic chords (name, numeral, voicing, bass). style ${PROGRESSION_STYLES.join("|")} walks a seeded harmony graph; or a preset ${PROGRESSION_PRESETS.map((p) => p.name).join("|")}. length ≤${MAX_CHORDS}.`,
+    description:
+      "Read-only: voice-led diatonic chords (name, numeral, voicing, bass) from a style walk or a named preset; length ≤32.",
     parameters: {
       type: "object",
       properties: progressionSchema,
@@ -190,7 +191,8 @@ export const CHORD_TOOLS: readonly AgentTool[] = Object.freeze([
   },
   {
     name: "write_chords",
-    description: `Write voice-led chords to a track (one bar each by default), with optional bass here or on bassTrackId. perform pattern uses pattern ${CHORD_PATTERNS.map((p) => p.name).join("|")}. bassMode ${BASS_MODES.join("|")} (solo: bass only). ≤${MAX_CHORD_NOTES} notes.`,
+    description:
+      "Write voice-led chords to a track (one bar each by default), optional bass here or on bassTrackId, with a perform pattern. ≤512 notes.",
     parameters: {
       type: "object",
       properties: {
@@ -341,7 +343,8 @@ export const CHORD_TOOLS: readonly AgentTool[] = Object.freeze([
   },
   {
     name: "strum_chords",
-    description: `Strum chords as fretted guitar notes (set_guitar). chords omitted strums the track's block chords. strokes ${STROKE_PATTERN_NAMES.join("|")} or a DUdux-. grid; speed ms/stroke (22); step grid beats; each beats/chord (a bar).`,
+    description:
+      "Strum chords as fretted guitar notes (set_guitar); omitted chords strums the track's block chords. strokes name or a DUdux-. grid.",
     parameters: {
       type: "object",
       properties: {
@@ -409,7 +412,8 @@ export const CHORD_TOOLS: readonly AgentTool[] = Object.freeze([
   },
   {
     name: "set_guitar",
-    description: `Guitar fretting for strum: tune ${GUITAR_TUNING_NAMES.join("|")} or notes low-high ("D A D G A D"), capo 0..12, hand 3..6 frets, ring 0..1, position 0..12, reset.`,
+    description:
+      "Guitar fretting for strum: tune (name or notes low-high), capo, hand span, ring, position, reset.",
     parameters: {
       type: "object",
       properties: {

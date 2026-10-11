@@ -13,7 +13,8 @@ import type { AgentTool } from "./tools.ts";
 
 const SET_CALIBRATION: AgentTool = {
   name: "set_calibration",
-  description: `Set the song's sound calibration: ${CALIBRATION_LATEST} (latest) chokes the open hat, tunes GM toms, adds crash, ride and cowbell, levels keys presets and steadies lip brass; 0 keeps the legacy 0.4 to 0.6.1 sound byte-identical. New songs start at the latest.`,
+  description:
+    "Set the song's sound calibration: 1 (latest) or 0 (legacy 0.4 to 0.6.1 sound).",
   parameters: {
     type: "object",
     properties: {
