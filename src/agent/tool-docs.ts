@@ -182,7 +182,7 @@ export const AGENT_TOOL_DOCS: Readonly<Record<string, AgentToolDoc>> =
     },
     preset_catalog: {
       details:
-        "The built-in preset library (151 presets, 17 categories: init bass lead pad keys pluck mallet strings brass wind vox arp fx texture drums perc chain). No arguments: category counts and the focused track's preset. category: that category's rows (name · category · four knob names · description). query: fuzzy search over names, tags, knobs and descriptions ('808', 'fm bell', 'wrmpd'), optionally within a category. name: one preset's description, the advanced feature it shows, each knob's meaning, its /patch path and similar presets. Read only.",
+        "The built-in preset library (155 presets, 17 categories: init bass lead pad keys pluck mallet strings brass wind vox arp fx texture drums perc chain). No arguments: category counts and the focused track's preset. category: that category's rows (name · category · four knob names · description). query: fuzzy search over names, tags, knobs and descriptions ('808', 'fm bell', 'wrmpd'), optionally within a category. name: one preset's description, the advanced feature it shows, each knob's meaning, its /patch path and similar presets. Read only.",
       example: { query: "warm pad" },
     },
     use_preset: {

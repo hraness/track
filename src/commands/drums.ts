@@ -4,7 +4,8 @@
  *   /pattern                 browse the library (picker with preview)
  *   /pattern <name>          put the pattern on the focused drum track
  *   /pattern list            the library as text
- *   /kit <synth kit>         syn808, syn909, acoustic, lofi, electro, trap
+ *   /kit <synth kit>         syn808, syn909, acoustic, lofi, electro, trap,
+ *                            syn606, syn707, synlinn, breaks
  *   /kit default             the built-in voices again
  *
  * Sample kits (`/kit 909`, `/kit RolandTR808`) stay in `commands/pack.ts`;

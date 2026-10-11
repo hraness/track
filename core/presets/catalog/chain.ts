@@ -1,5 +1,5 @@
 /** Effect-chain presets (any track) and drum kit rows. */
-import { kitPreset, knob, type Preset, type PresetSpec } from "../build.ts";
+import { knob, type PresetSpec } from "../build.ts";
 
 export const CHAIN: readonly PresetSpec[] = [
   {
@@ -340,47 +340,214 @@ export const CHAIN: readonly PresetSpec[] = [
   },
 ];
 
-export const KITS: readonly Preset[] = [
-  kitPreset(
+/**
+ * A drum preset: the synth kit plus a drum-bus chain (compressor, color,
+ * tone, room) whose four knobs turn it, loaded as the drum track's effect
+ * patch.
+ */
+const drumKit = (
+  name: string,
+  kit: string,
+  tags: readonly string[],
+  desc: string,
+  feature: string,
+  color: PresetSpec["fx"] extends readonly (infer S)[] | undefined ? S : never,
+  colorKnob: ReturnType<typeof knob>,
+  bus: Readonly<{
+    threshold: number;
+    ratio: number;
+    tone: number;
+    room: number;
+    size: number;
+  }>,
+): PresetSpec => ({
+  name,
+  category: "drums",
+  kit,
+  guard: true,
+  tags,
+  desc,
+  feature,
+  fx: [
+    [
+      "compressor",
+      {
+        threshold: bus.threshold,
+        ratio: bus.ratio,
+        knee: 4,
+        attack: 0.012,
+        release: 0.12,
+        makeup: 2,
+      },
+      "punch",
+    ],
+    color,
+    ["filter", { type: "lpf", cutoff: bus.tone, resonance: 0 }, "tone"],
+    [
+      "reverb",
+      {
+        mix: bus.room,
+        size: bus.size,
+        fade: 1.2,
+        lowpass: 7000,
+        predelay: 0.01,
+      },
+      "room",
+    ],
+  ],
+  knobs: [
+    knob(
+      "Punch",
+      [-30, -6, bus.threshold],
+      { "punch.threshold": [-6, -30] },
+      "bus compression: more snap and sustain on every hit",
+    ),
+    colorKnob,
+    knob(
+      "Tone",
+      [1500, 18000, bus.tone],
+      { "tone.cutoff": null },
+      "dark and muffled to open and bright",
+      "exp",
+    ),
+    knob(
+      "Room",
+      [0, 0.5, bus.room],
+      { "room.mix": null },
+      "dry and tight to a live room around the kit",
+    ),
+  ],
+});
+
+const grit = (drive: number, mix: number) =>
+  [
+    ["distort", { type: "soft", drive, tone: 9000, mix }, "grit"] as const,
+    knob(
+      "Grit",
+      [0, 4, drive],
+      { "grit.drive": null },
+      "clean to saturated, pushed through tape",
+    ),
+  ] as const;
+
+const dust = (amount: number) =>
+  [
+    [
+      "crush",
+      { bits: Math.round((16 - amount * 10) * 10) / 10, coarse: 1, mix: 0.6 },
+      "dust",
+    ] as const,
+    knob(
+      "Dust",
+      [0, 1, amount],
+      { "dust.bits": [16, 6] },
+      "clean to crunchy sampler bit depth",
+    ),
+  ] as const;
+
+const kitSpec = (
+  name: string,
+  kit: string,
+  tags: readonly string[],
+  desc: string,
+  feature: string,
+  color: readonly [
+    PresetSpec["fx"] extends readonly (infer S)[] | undefined ? S : never,
+    ReturnType<typeof knob>,
+  ],
+  bus: Parameters<typeof drumKit>[7],
+) => drumKit(name, kit, tags, desc, feature, color[0], color[1], bus);
+
+/** Drum presets: synth kits with a drum-bus chain. */
+export const KITS: readonly PresetSpec[] = [
+  kitSpec(
     "808-kit",
     "syn808",
     ["808", "hip-hop", "electro", "classic"],
     "synth 808: booming kick, snappy snare, ticking hats",
-    "drum synthesis: tuned kick sweep and long boom",
+    "drum synthesis: tuned kick sweep and long boom, into a drum bus",
+    grit(0.6, 0.4),
+    { threshold: -16, ratio: 3, tone: 14000, room: 0.08, size: 0.4 },
   ),
-  kitPreset(
+  kitSpec(
     "909-kit",
     "syn909",
     ["909", "house", "techno", "classic"],
     "synth 909: punchy kick and bright hats for house and techno",
-    "drum synthesis: short punchy sweep",
+    "drum synthesis: short punchy sweep, into a drum bus",
+    grit(0.8, 0.4),
+    { threshold: -18, ratio: 4, tone: 16000, room: 0.06, size: 0.35 },
   ),
-  kitPreset(
+  kitSpec(
     "acoustic-kit",
     "acoustic",
     ["acoustic", "rock", "live", "natural"],
-    "natural acoustic kit",
-    "modeled drums with natural decays",
+    "natural acoustic kit in a live room",
+    "modeled drums with natural decays and a room reverb",
+    grit(0.3, 0.3),
+    { threshold: -20, ratio: 3, tone: 12000, room: 0.18, size: 0.55 },
   ),
-  kitPreset(
+  kitSpec(
     "lofi-kit",
     "lofi",
     ["lofi", "dusty", "boom-bap", "crushed"],
     "dusty, crushed boom-bap kit",
     "bitcrush and sample-and-hold on the whole kit",
+    dust(0.4),
+    { threshold: -18, ratio: 3, tone: 6000, room: 0.1, size: 0.4 },
   ),
-  kitPreset(
+  kitSpec(
     "electro-kit",
     "electro",
     ["electro", "minimal", "tight", "clicky"],
     "tight, clicky minimal kit",
     "short metallic hats and a tight kick",
+    grit(0.5, 0.3),
+    { threshold: -16, ratio: 3, tone: 15000, room: 0.05, size: 0.3 },
   ),
-  kitPreset(
+  kitSpec(
     "trap-kit",
     "trap",
     ["trap", "808", "drill", "distorted"],
     "trap: distorted long 808, crisp hats, high snare",
     "saturation on a long sliding 808",
+    grit(1, 0.4),
+    { threshold: -16, ratio: 3, tone: 16000, room: 0.05, size: 0.3 },
+  ),
+  kitSpec(
+    "606-kit",
+    "syn606",
+    ["606", "electro", "acid", "classic", "minimal"],
+    "synth 606: thin tight kick, snappy snare, ticking metal hats",
+    "six-square metallic hats and a short tuned kick, into a drum bus",
+    grit(0.6, 0.35),
+    { threshold: -18, ratio: 3, tone: 15000, room: 0.06, size: 0.3 },
+  ),
+  kitSpec(
+    "707-kit",
+    "syn707",
+    ["707", "house", "freestyle", "classic", "80s"],
+    "synth 707: punchy short kick, crisp snare and bright hats",
+    "bright noise hats and a punchy sweep, glued on a drum bus",
+    grit(0.7, 0.35),
+    { threshold: -18, ratio: 3.5, tone: 16000, room: 0.08, size: 0.4 },
+  ),
+  kitSpec(
+    "linn-kit",
+    "synlinn",
+    ["linn", "80s", "pop", "funk", "classic"],
+    "80s Linn-style kit: fat kick, big tonal snare in a bright room",
+    "tonal snare body and a gated-feeling room on a drum bus",
+    grit(0.5, 0.3),
+    { threshold: -20, ratio: 4, tone: 14000, room: 0.2, size: 0.5 },
+  ),
+  kitSpec(
+    "breaks-kit",
+    "breaks",
+    ["breaks", "breakbeat", "jungle", "boom-bap", "dusty"],
+    "dusty live break: thuddy kick, cracking snare, crushed top",
+    "sample-and-hold and bitcrush on the kit, then a squashed bus",
+    dust(0.6),
+    { threshold: -22, ratio: 5, tone: 9000, room: 0.12, size: 0.45 },
   ),
 ];

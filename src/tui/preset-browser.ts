@@ -54,7 +54,7 @@ export function presetItem(
   options: BrowserOptions,
 ): PickerItem {
   const fav = options.favorites.has(preset.name);
-  const knobs = preset.kind === "kit" ? `kit ${preset.kit}` : knobNames(preset);
+  const knobs = knobNames(preset);
   return {
     label: `${fav ? `${star(options.ascii)} ` : "  "}${preset.name.padEnd(16)} ${knobs}`,
     value: `preset ${preset.name}`,
@@ -67,11 +67,7 @@ export function presetItem(
 /** The line under the rows: the feature it shows, and where to open it. */
 export function presetNote(preset: Preset): string {
   const open =
-    preset.kind === "kit"
-      ? "/kit"
-      : preset.kind === "effect"
-        ? `/patch --fx ${preset.name}`
-        : "/patch";
+    preset.kind === "instrument" ? "/patch" : `/patch --fx ${preset.name}`;
   return `${preset.feature} · ${open}`;
 }
 
