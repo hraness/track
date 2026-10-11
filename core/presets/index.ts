@@ -1,7 +1,8 @@
 /**
  * The built-in preset catalog: every preset by name, in category order.
  * Instrument and effect presets are built-in patches (BUILTIN_PATCHES
- * includes them); drum presets set the track's kit.
+ * includes them); drum presets set the track's kit and add its drum-bus
+ * chain as an effect patch.
  */
 import { ACID_BASS } from "../patches/acid-bass.ts";
 import { FM_BELL } from "../patches/fm-bell.ts";
@@ -47,6 +48,7 @@ export const PRESET_SPECS: readonly PresetSpec[] = [
   ...PERC,
   ...INIT,
   ...CHAIN,
+  ...KITS,
 ];
 
 /**
@@ -157,7 +159,6 @@ export const PRESETS: readonly Preset[] = Object.freeze(
   [
     ...PRESET_SPECS.map((spec) => buildPreset(spec, PRESET_LEVELS)),
     ...MODULAR,
-    ...KITS,
   ].sort(
     (a, b) =>
       PRESET_CATEGORIES.indexOf(a.category) -

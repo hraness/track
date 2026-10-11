@@ -76,6 +76,21 @@ describe("preset command", () => {
     );
   });
 
+  test("a kit preset sets the kit and swaps its drum-bus chain in place", () => {
+    let next = usePreset(score(), "drums", presetByName("808-kit")!).next!;
+    next = usePreset(next, "drums", presetByName("breaks-kit")!).next!;
+    const drums = next.tracks.find((t) => t.id === "drums")!;
+    expect(drums.kit).toBe("breaks");
+    expect((drums.fxPatch ?? []).map((p) => p.name)).toEqual(["breaks-kit"]);
+    expect(trackPreset(drums)?.name).toBe("breaks-kit");
+    expect(presetByName("breaks-kit")!.knobs.map((k) => k.label)).toEqual([
+      "Punch",
+      "Dust",
+      "Tone",
+      "Room",
+    ]);
+  });
+
   test("a chain preset swaps in place when browsing", () => {
     const chains = PRESETS.filter((p) => p.kind === "effect");
     let next = usePreset(score(), "lead", chains[0]!).next!;

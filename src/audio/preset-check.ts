@@ -109,6 +109,7 @@ type PhraseNote = { start: number; dur: number; pitch: number; vel: number };
 
 /** The standard phrase for a preset, in seconds. */
 export function presetPhrase(preset: Preset): PhraseNote[] {
+  if (preset.kind === "kit") return drumPhrase();
   const [lo, hi] = preset.range;
   const mid = Math.round((lo + hi) / 2);
   const notes: PhraseNote[] = [];
@@ -131,6 +132,34 @@ export function presetPhrase(preset: Preset): PhraseNote[] {
   notes.push({ start: 6.5, dur: 0.5, pitch: hi, vel: 0.8 });
   return notes;
 }
+
+/**
+ * Kit presets: four bars of a 120 BPM groove (kick, snare, clap, closed and
+ * open hats, a tom fill) at mixed velocities, then the top note at 6.5 s is
+ * a crash-free hat so the aliasing window has a hit in it.
+ */
+function drumPhrase(): PhraseNote[] {
+  const notes: PhraseNote[] = [];
+  for (let bar = 0; bar < 3; bar += 1) {
+    const t0 = bar * 2;
+    for (const beat of [0, 1.25, 1.5]) notes.push(hit(t0 + beat, 36, 0.95));
+    for (const beat of [0.5, 1.5]) notes.push(hit(t0 + beat, 38, 0.9));
+    if (bar === 1) notes.push(hit(t0 + 1.5, 39, 0.7));
+    for (let i = 0; i < 8; i += 1)
+      notes.push(hit(t0 + i * 0.25, i === 7 ? 46 : 42, i % 2 ? 0.45 : 0.75));
+  }
+  for (const [i, p] of [50, 47, 45, 43].entries())
+    notes.push(hit(6 + i * 0.125, p, 0.8));
+  notes.push(hit(6.5, 36, 1), hit(6.5, 42, 0.8));
+  return notes;
+}
+
+const hit = (start: number, pitch: number, vel: number): PhraseNote => ({
+  start,
+  dur: 0.1,
+  pitch,
+  vel,
+});
 
 /** Seconds rendered: the phrase plus a tail. */
 export const CHECK_SECONDS = 14;
@@ -174,15 +203,23 @@ export function presetScore(
     velocity: n.vel,
   }));
   const track =
-    preset.kind === "effect"
+    preset.kind === "kit"
       ? {
           id: "t",
           name: "t",
-          instrument: "sawtooth",
-          synth: { attack: 0.01, release: 0.2, lpf: 3000 },
+          instrument: "kit",
+          kit: preset.kit!,
           fxPatch: [preset.patch!],
         }
-      : { id: "t", name: "t", instrument: "patch", patch: preset.patch! };
+      : preset.kind === "effect"
+        ? {
+            id: "t",
+            name: "t",
+            instrument: "sawtooth",
+            synth: { attack: 0.01, release: 0.2, lpf: 3000 },
+            fxPatch: [preset.patch!],
+          }
+        : { id: "t", name: "t", instrument: "patch", patch: preset.patch! };
   return createScore({
     tempoBpm: BPM,
     ticksPerBeat: TPB,
@@ -194,7 +231,7 @@ export function presetScore(
 
 /** Renders the phrase and measures it. */
 export function measurePreset(preset: Preset): PresetMetrics {
-  if (!preset.patch) throw new Error(`${preset.name}: kits are not measured`);
+  if (!preset.patch) throw new Error(`${preset.name}: no patch to measure`);
   const score = presetScore(preset);
   const audio = renderScorePcm(score, { sampleRate: CHECK_SAMPLE_RATE });
   const [left, right] = pcmChannels(audio.pcm);

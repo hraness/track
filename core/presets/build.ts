@@ -142,6 +142,11 @@ export type PresetSpec = Readonly<{
   mono?: boolean;
   /** A fast peak limiter after the level stage, for spiky sources. */
   guard?: boolean;
+  /**
+   * Drum presets: the synth kit (`core/kits.ts`) the drum track plays; the
+   * `fx` stages become the kit's effect chain and the knobs turn it.
+   */
+  kit?: string;
 }>;
 
 export type KnobDoc = Readonly<{ id: string; label: string; doc: string }>;
@@ -154,7 +159,7 @@ export type Preset = Readonly<{
   feature: string;
   /** Instrument or effect patch, or a drum kit name. */
   kind: "instrument" | "effect" | "kit";
-  /** The patch to load (absent for kits). */
+  /** The patch to load: the instrument, the effect chain, or a kit's chain. */
   patch?: Patch;
   /** The kit word (`syn808` …) for kit presets. */
   kit?: string;
@@ -183,6 +188,7 @@ const RANGES: Readonly<
   fx: [48, 72],
   texture: [36, 64],
   perc: [48, 72],
+  drums: [36, 51],
 };
 
 const idOf = (label: string): string =>
@@ -354,8 +360,9 @@ export function buildPreset(
     tags: Object.freeze([...spec.tags]),
     desc: spec.desc,
     feature: spec.feature,
-    kind: role,
+    kind: spec.kit ? ("kit" as const) : role,
     patch,
+    ...(spec.kit ? { kit: spec.kit } : {}),
     knobs: Object.freeze(
       spec.knobs.map((k) => ({
         id: idOf(k.label),
@@ -400,29 +407,6 @@ export function describePatch(
     range: meta.range ?? RANGES[meta.category] ?? DEFAULT_RANGE,
     mono: meta.mono ?? false,
     nodes: Object.freeze([...new Set(patch.nodes.map((n) => n.type))]),
-  });
-}
-
-/** A drum kit as a browser row. */
-export function kitPreset(
-  name: string,
-  kit: string,
-  tags: readonly string[],
-  desc: string,
-  feature: string,
-): Preset {
-  return Object.freeze({
-    name,
-    category: "drums" as const,
-    tags: Object.freeze([...tags]),
-    desc,
-    feature,
-    kind: "kit" as const,
-    kit,
-    knobs: Object.freeze([]),
-    range: [36, 51] as const,
-    mono: false,
-    nodes: Object.freeze([]),
   });
 }
 

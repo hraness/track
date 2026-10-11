@@ -248,7 +248,7 @@ export function presetsIn(category: PresetCategory): Preset[] {
 
 /** One catalog row: `warm-pad  pad  Grit · Motion · Space · Bloom  — desc`. */
 export function presetRow(preset: Preset, favorite = false): string {
-  const knobs = preset.kind === "kit" ? "kit" : knobNames(preset);
+  const knobs = knobNames(preset);
   return `${favorite ? "* " : ""}${preset.name} · ${preset.category} · ${knobs} · ${preset.desc}`;
 }
 
@@ -260,16 +260,14 @@ export function presetInfo(preset: Preset): string[] {
     `uses: ${preset.feature}`,
   ];
   if (preset.kind === "kit")
-    lines.push(`kit ${preset.kit} · /kit ${preset.kit}`);
-  else {
-    for (const [i, k] of preset.knobs.entries())
-      lines.push(`knob ${i + 1} ${k.label}: ${k.doc}`);
-    lines.push(
-      preset.kind === "effect"
-        ? `open it: /patch --fx ${preset.name} · nodes: ${preset.nodes.join(" ")}`
-        : `open it: /patch · nodes: ${preset.nodes.join(" ")}`,
-    );
-  }
+    lines.push(`kit ${preset.kit} · /kit ${preset.kit} · drum bus below`);
+  for (const [i, k] of preset.knobs.entries())
+    lines.push(`knob ${i + 1} ${k.label}: ${k.doc}`);
+  lines.push(
+    preset.kind === "instrument"
+      ? `open it: /patch · nodes: ${preset.nodes.join(" ")}`
+      : `open it: /patch --fx ${preset.name} · nodes: ${preset.nodes.join(" ")}`,
+  );
   const similar = similarPresets(preset);
   if (similar.length)
     lines.push(`similar: ${similar.map((p) => p.name).join(" ")}`);
@@ -288,6 +286,32 @@ function unknown(name: string): PresetResult {
   };
 }
 
+/**
+ * `score` with `preset`'s patch as an effect patch on `trackId`, swapping in
+ * place the chain an earlier `preset` loaded (so browsing never stacks);
+ * undefined when the track already has it elsewhere in its chain.
+ */
+function withPresetChain(
+  score: TrackScore,
+  trackId: string,
+  preset: Preset,
+): TrackScore | undefined {
+  const track = score.tracks.find((t) => t.id === trackId)!;
+  const patch: Patch = { ...preset.patch!, from: `${PREFIX}${preset.name}` };
+  const stages = track.fxPatch ?? [];
+  const at = stages.findIndex((p) => p.from?.startsWith(PREFIX));
+  if (stages.some((p, i) => p.name === preset.name && i !== at))
+    return undefined;
+  let next = score;
+  if (at >= 0) next = setPatch(next, { trackId, fx: stages[at]!.name }, null);
+  return setPatch(
+    next,
+    { trackId, fx: preset.name },
+    patch,
+    at >= 0 ? at : stages.length,
+  );
+}
+
 /** Loads `preset` on `trackId`: the track's patch, an effect patch or a kit. */
 export function usePreset(
   score: TrackScore,
@@ -304,34 +328,23 @@ export function usePreset(
         message: `preset ${preset.name} is a kit · focus a drum track (/track drums)`,
       };
     const result = applySynthKit(score, trackId, preset.kit!);
-    if (!result.ok || !result.next)
-      return { ok: result.ok, message: result.message };
+    const kitted = result.next ?? (result.ok ? score : undefined);
+    if (!kitted) return { ok: result.ok, message: result.message };
+    const next = withPresetChain(kitted, trackId, preset);
+    if (!next)
+      return { ok: true, message: `${trackId} already has ${preset.name}` };
     return {
       ok: true,
-      message: `${trackId}: ${preset.name} · ${preset.desc}`,
-      next: result.next,
+      message: `${trackId}: ${preset.name} · kit ${preset.kit} · ${knobLine(preset)} · /patch --fx ${preset.name}`,
+      next,
       kind: "preset.use",
       payload: { trackId, preset: preset.name },
     };
   }
-  const patch: Patch = { ...preset.patch!, from: `${PREFIX}${preset.name}` };
   if (preset.kind === "effect") {
-    const stages = track.fxPatch ?? [];
-    // Browsing chains swaps the one an earlier `preset` loaded in place.
-    const at = stages.findIndex((p) => p.from?.startsWith(PREFIX));
-    if (stages.some((p, i) => p.name === preset.name && i !== at))
-      return {
-        ok: true,
-        message: `${trackId} already has ${preset.name}`,
-      };
-    let next = score;
-    if (at >= 0) next = setPatch(next, { trackId, fx: stages[at]!.name }, null);
-    next = setPatch(
-      next,
-      { trackId, fx: preset.name },
-      patch,
-      at >= 0 ? at : stages.length,
-    );
+    const next = withPresetChain(score, trackId, preset);
+    if (!next)
+      return { ok: true, message: `${trackId} already has ${preset.name}` };
     return {
       ok: true,
       message: `${trackId}: chain ${preset.name} · ${knobLine(preset)} · /patch --fx ${preset.name}`,
@@ -345,6 +358,7 @@ export function usePreset(
       ok: false,
       message: `preset ${preset.name} is for melodic tracks · on drums try preset list drums`,
     };
+  const patch: Patch = { ...preset.patch!, from: `${PREFIX}${preset.name}` };
   const next = updateTrack(score, trackId, {
     instrument: PATCH_INSTRUMENT,
     patch,

@@ -24,7 +24,7 @@ const MAX_ROWS = 40;
 /** `warm-pad · pad · Grit Motion Space Bloom · lush detuned pad`. */
 function row(name: string): string {
   const preset = presetByName(name)!;
-  const knobs = preset.kind === "kit" ? `kit ${preset.kit}` : knobNames(preset);
+  const knobs = knobNames(preset);
   return `${preset.name} · ${preset.category} · ${knobs} · ${preset.desc}`;
 }
 
@@ -34,8 +34,8 @@ function describe(name: string): string {
   return [
     ...presetInfo(preset),
     preset.kind === "kit"
-      ? "load: use_preset on a drum track"
-      : "load: use_preset; turn knobs with patch_edit (patch knob <knob> <0..1>)",
+      ? "load: use_preset on a drum track; turn knobs with patch_edit (patch knob <knob> <value> --fx <name>)"
+      : "load: use_preset; turn knobs with patch_edit (patch knob <knob> <value>)",
   ].join("\n");
 }
 
