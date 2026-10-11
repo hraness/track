@@ -53,6 +53,17 @@ const ENGINE_LANE_PREFIX: Readonly<Record<string, string>> = Object.freeze({
   "engine.keys": "keys",
 });
 
+/** The Track field each engine node reads its settings from. */
+const ENGINE_FIELD: Readonly<Record<string, string>> = Object.freeze({
+  "engine.synth": "synth",
+  "engine.modal": "modal",
+  "engine.string": "string",
+  "engine.wind": "wind",
+  "engine.sing": "sing",
+  "engine.granular": "granular",
+  "engine.keys": "keys",
+});
+
 const LANES: ReadonlySet<string> = new Set(FX_LANES.map(({ lane }) => lane));
 
 /** What the patch needs from the render: timing, the library and the side. */
@@ -241,19 +252,44 @@ function numberParam(node: BufferIo["node"], name: string): number {
   return port?.spec?.default ?? 0;
 }
 
-/** Lanes for every wired control input of a wrapper node. */
+/**
+ * A control input's value per sample: its knob (when a macro drives it) or
+ * its own value, plus its cables; undefined when none of those is live.
+ * `own` also counts an explicit numeric value, which engines only read
+ * through lanes.
+ */
+function controlSignal(
+  io: BufferIo,
+  name: string,
+  own: boolean,
+): Float64Array | undefined {
+  const cable = io.inputs[name];
+  const knob = io.bases?.[name];
+  if (!cable && !knob && !(own && typeof io.node.params[name] === "number"))
+    return undefined;
+  const base = numberParam(io.node, name);
+  const out = new Float64Array(io.frames);
+  for (let i = 0; i < io.frames; i += 1)
+    out[i] =
+      (knob ? knob[Math.min(knob.length - 1, Math.floor(i / BLOCK))]! : base) +
+      (cable ? cable[i]! : 0);
+  return out;
+}
+
+/** Lanes for every live control input of a wrapper node. */
 function wiredLanes(
   io: BufferIo,
   prefix: string,
+  own: boolean,
   lane: (signal: Float64Array, base: number) => AutomationPoint[],
 ): Record<string, AutomationPoint[]> {
   const lanes: Record<string, AutomationPoint[]> = {};
   for (const port of io.node.spec.inputs) {
     if (port.kind !== "control") continue;
-    const signal = io.inputs[port.name];
     const name = `${prefix}-${port.name}`;
-    if (!signal || !LANES.has(name)) continue;
-    lanes[name] = lane(signal, numberParam(io.node, port.name));
+    if (!LANES.has(name)) continue;
+    const signal = controlSignal(io, port.name, own);
+    if (signal) lanes[name] = lane(signal, 0);
   }
   return lanes;
 }
@@ -281,14 +317,20 @@ function bufferHandler(
                   context.samplesPerTick,
           ),
         }));
-        const lanes = wiredLanes(io, prefix, (signal, base) =>
+        const lanes = wiredLanes(io, prefix, true, (signal, base) =>
           onsetLane(signal, base, onsets),
         );
-        if (Object.keys(lanes).length > 0)
+        if (Object.keys(lanes).length > 0) {
+          // An engine reads its lanes only with its settings field present
+          // (a bare `sine` is the legacy voice), so a knob or value creates it.
+          const field = ENGINE_FIELD[node.type];
+          const record = voiceTrack as unknown as Record<string, unknown>;
           voiceTrack = {
             ...voiceTrack,
+            ...(field && record[field] === undefined ? { [field]: {} } : {}),
             fxAutomation: { ...voiceTrack.fxAutomation, ...lanes },
           } as Track;
+        }
       }
       const left = outputs.out!;
       const right = outputs.right ?? new Float64Array(io.frames);
@@ -305,7 +347,7 @@ function bufferHandler(
           values[port.name] = numberParam(node, port.name);
       for (const [name, value] of Object.entries(node.params))
         if (typeof value !== "number") values[name] = value;
-      const lanes = wiredLanes(io, stage, (signal, base) =>
+      const lanes = wiredLanes(io, stage, false, (signal, base) =>
         blockLane(signal, base, context),
       );
       const stageTrack = stageTrackOf(track, stage, values, lanes);
